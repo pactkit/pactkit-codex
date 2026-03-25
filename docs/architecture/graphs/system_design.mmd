@@ -1,0 +1,46 @@
+graph TD
+    subgraph PactKit["PactKit Core (~/workspaces/pactkit/)"]
+        Prompts["prompts/*.py"]
+        Deployer["deployer.py _deploy_codex()"]
+        Profiles["profiles.py FormatProfile codex"]
+        RenderPrompt["_render_prompt() template vars"]
+    end
+
+    subgraph GlobalDeploy["~/.codex/ Global Deploy"]
+        GConfig["config.toml"]
+        GAgents["AGENTS.md ~15KB inlined rules"]
+        GPrompts["prompts/ 11 command .md files"]
+        GSkills["skills/ 10 skill dirs"]
+    end
+
+    subgraph ProjectDeploy[".codex/ + ./AGENTS.md Project"]
+        PAgents["./AGENTS.md project + context ref"]
+        PYaml[".codex/pactkit.yaml"]
+    end
+
+    subgraph CodexRuntime["Codex CLI Runtime"]
+        Agent["Single Agent o4-mini/gpt-4o/o3"]
+        Sandbox["Sandbox read-only/workspace-write"]
+        MCP["MCP Client context7, memory"]
+        Hooks["Hooks session_start, pre_tool_use"]
+    end
+
+    Profiles --> Deployer
+    Prompts --> RenderPrompt
+    RenderPrompt --> Deployer
+
+    Deployer -->|pactkit init --format codex| GConfig
+    Deployer -->|pactkit init --format codex| GAgents
+    Deployer -->|pactkit init --format codex| GPrompts
+    Deployer -->|pactkit init --format codex| GSkills
+
+    Deployer -->|/project-init| PAgents
+    Deployer -->|/project-init| PYaml
+
+    GAgents -->|concatenate| Agent
+    PAgents -->|concatenate| Agent
+    GPrompts -->|slash menu| Agent
+    GSkills -->|skill invoke| Agent
+    GConfig --> Sandbox
+    GConfig --> MCP
+    GConfig --> Hooks
