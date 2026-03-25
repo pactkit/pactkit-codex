@@ -42,11 +42,3 @@ The full PactKit codebase is at `~/workspaces/pactkit/`. Key paths:
 2. **Phase 2: Design** — Decide degraded fallback strategy for each capability
 3. **Phase 3: Build** — Generate AGENTS.md + skills + config for Codex CLI
 4. **Phase 4: Test** — Verify in real Codex CLI session
-
-## Dev Commands
-
-```bash
-# Python (if needed for scripts)
-python3 -m venv .venv
-source .venv/bin/activate
-```
