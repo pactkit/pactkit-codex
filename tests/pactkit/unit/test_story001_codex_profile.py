@@ -60,10 +60,10 @@ class TestCodexFormatProfile:
 
         assert FORMAT_PROFILES["codex"].rules_import_style == "inline"
 
-    def test_codex_has_custom_commands_false(self):
+    def test_codex_has_custom_commands_true(self):
         from pactkit.profiles import FORMAT_PROFILES
 
-        assert FORMAT_PROFILES["codex"].has_custom_commands is False
+        assert FORMAT_PROFILES["codex"].has_custom_commands is True
 
     def test_codex_supports_mcp(self):
         from pactkit.profiles import FORMAT_PROFILES

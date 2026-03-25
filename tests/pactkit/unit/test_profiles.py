@@ -117,8 +117,8 @@ class TestFormatProfilesRegistry:
         assert p.project_config_dir == ".codex"
         assert p.agent_format == "md"  # Codex AGENTS.md is plain markdown
         assert p.rules_import_style == "inline"
-        assert p.has_custom_commands is False
-        assert p.commands_dir is None
+        assert p.has_custom_commands is True
+        assert p.commands_dir == "~/.codex/prompts"
         assert p.rules_dir is None
 
     def test_classic_excluded_fields(self):

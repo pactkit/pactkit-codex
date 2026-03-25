@@ -1,8 +1,6 @@
 """Tests for STORY-006: config.toml Generator for MCP, Sandbox, and Hooks."""
 
-import sys
 import tomllib
-from pathlib import Path
 
 import pytest
 

@@ -1,6 +1,5 @@
 """Tests for STORY-004: Convert 11 Command Playbooks to Codex Prompts."""
 
-from pathlib import Path
 
 import pytest
 import yaml
@@ -25,7 +24,7 @@ EXPECTED_FILES = [
     "project-clarify.md",
     "project-release.md",
     "project-pr.md",
-    "project-sprint.md",
+    # project-sprint.md excluded — requires multi-agent (BUG-002)
 ]
 
 ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
@@ -42,15 +41,15 @@ class TestCodexPrompts:
         profile = get_profile("codex")
         return _deploy_codex_prompts(prompts_dir, profile)
 
-    def test_ac1_all_11_files_present(self, prompts_dir):
-        """AC1: All 11 prompt files are present with .md extension."""
+    def test_ac1_all_10_files_present(self, prompts_dir):
+        """AC1: All 10 prompt files are present (sprint excluded)."""
         count = self._deploy(prompts_dir)
-        assert count == 11
+        assert count == 10
         for filename in EXPECTED_FILES:
             assert (prompts_dir / filename).exists(), f"Missing: {filename}"
 
     def test_ac1_only_expected_files(self, prompts_dir):
-        """AC1: No extra files beyond the 11."""
+        """AC1: No extra files beyond the 10."""
         self._deploy(prompts_dir)
         files = sorted(f.name for f in prompts_dir.glob("*.md"))
         assert files == sorted(EXPECTED_FILES)

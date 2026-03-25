@@ -39,10 +39,10 @@ class TestAC1ArtifactCreation:
     def test_visualize_script_exists(self, codex_deploy):
         assert (codex_deploy / "skills/pactkit-visualize/scripts/visualize.py").is_file()
 
-    def test_11_prompt_files(self, codex_deploy):
-        """R1: One rendered command prompt per registered command (11 total)."""
+    def test_10_prompt_files(self, codex_deploy):
+        """R1: One rendered command prompt per registered command (10 — sprint excluded)."""
         prompts = list((codex_deploy / "prompts").glob("*.md"))
-        assert len(prompts) == 11, f"Expected 11 prompts, got {len(prompts)}: {[p.name for p in prompts]}"
+        assert len(prompts) == 10, f"Expected 10 prompts, got {len(prompts)}: {[p.name for p in prompts]}"
 
     def test_10_skill_dirs(self, codex_deploy):
         """R1: 10 skill directories under skills/."""
@@ -137,12 +137,12 @@ class TestAC5SkillExecution:
 class TestPromptIntegrity:
     """Additional integrity checks on deployed prompts."""
 
-    def test_all_11_commands_present(self, codex_deploy):
-        """All 11 PactKit commands are deployed as prompt files."""
+    def test_all_10_commands_present(self, codex_deploy):
+        """All 10 PactKit commands are deployed (sprint excluded)."""
         expected = {
             "project-init.md", "project-plan.md", "project-act.md",
             "project-check.md", "project-done.md", "project-release.md",
-            "project-pr.md", "project-sprint.md", "project-hotfix.md",
+            "project-pr.md", "project-hotfix.md",
             "project-design.md", "project-clarify.md",
         }
         actual = {f.name for f in (codex_deploy / "prompts").glob("*.md")}

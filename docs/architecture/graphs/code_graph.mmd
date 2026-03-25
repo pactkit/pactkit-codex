@@ -1,1 +1,131 @@
 graph TD
+    src_pactkit_id_generator_py["id_generator.py"]
+    click src_pactkit_id_generator_py href "src/pactkit/id_generator.py"
+    src_pactkit_regression_py["regression.py"]
+    click src_pactkit_regression_py href "src/pactkit/regression.py"
+    src_pactkit_config_py["config.py"]
+    click src_pactkit_config_py href "src/pactkit/config.py"
+    src_pactkit_lessons_py["lessons.py"]
+    click src_pactkit_lessons_py href "src/pactkit/lessons.py"
+    src_pactkit_guards_py["guards.py"]
+    click src_pactkit_guards_py href "src/pactkit/guards.py"
+    src_pactkit_sec_scope_py["sec_scope.py"]
+    click src_pactkit_sec_scope_py href "src/pactkit/sec_scope.py"
+    src_pactkit_lint_runner_py["lint_runner.py"]
+    click src_pactkit_lint_runner_py href "src/pactkit/lint_runner.py"
+    src_pactkit_validators_py["validators.py"]
+    click src_pactkit_validators_py href "src/pactkit/validators.py"
+    src_pactkit___init___py["__init__.py"]
+    click src_pactkit___init___py href "src/pactkit/__init__.py"
+    src_pactkit_lazy_visualize_py["lazy_visualize.py"]
+    click src_pactkit_lazy_visualize_py href "src/pactkit/lazy_visualize.py"
+    src_pactkit_context_gen_py["context_gen.py"]
+    click src_pactkit_context_gen_py href "src/pactkit/context_gen.py"
+    src_pactkit_schemas_py["schemas.py"]
+    click src_pactkit_schemas_py href "src/pactkit/schemas.py"
+    src_pactkit_cli_py["cli.py"]
+    click src_pactkit_cli_py href "src/pactkit/cli.py"
+    src_pactkit_backfill_py["backfill.py"]
+    click src_pactkit_backfill_py href "src/pactkit/backfill.py"
+    src_pactkit_utils_py["utils.py"]
+    click src_pactkit_utils_py href "src/pactkit/utils.py"
+    src_pactkit_cleaners_py["cleaners.py"]
+    click src_pactkit_cleaners_py href "src/pactkit/cleaners.py"
+    src_pactkit_spec_status_py["spec_status.py"]
+    click src_pactkit_spec_status_py href "src/pactkit/spec_status.py"
+    src_pactkit_coverage_gate_py["coverage_gate.py"]
+    click src_pactkit_coverage_gate_py href "src/pactkit/coverage_gate.py"
+    src_pactkit_scripts_py["scripts.py"]
+    click src_pactkit_scripts_py href "src/pactkit/scripts.py"
+    src_pactkit_issue_sync_py["issue_sync.py"]
+    click src_pactkit_issue_sync_py href "src/pactkit/issue_sync.py"
+    src_pactkit_test_mapper_py["test_mapper.py"]
+    click src_pactkit_test_mapper_py href "src/pactkit/test_mapper.py"
+    src_pactkit_doctor_py["doctor.py"]
+    click src_pactkit_doctor_py href "src/pactkit/doctor.py"
+    src_pactkit_profiles_py["profiles.py"]
+    click src_pactkit_profiles_py href "src/pactkit/profiles.py"
+    src_pactkit_invariants_py["invariants.py"]
+    click src_pactkit_invariants_py href "src/pactkit/invariants.py"
+    src_pactkit_prompts_skills_py["skills.py"]
+    click src_pactkit_prompts_skills_py href "src/pactkit/prompts/skills.py"
+    src_pactkit_prompts_references_py["references.py"]
+    click src_pactkit_prompts_references_py href "src/pactkit/prompts/references.py"
+    src_pactkit_prompts___init___py["__init__.py"]
+    click src_pactkit_prompts___init___py href "src/pactkit/prompts/__init__.py"
+    src_pactkit_prompts_rules_py["rules.py"]
+    click src_pactkit_prompts_rules_py href "src/pactkit/prompts/rules.py"
+    src_pactkit_prompts_agents_py["agents.py"]
+    click src_pactkit_prompts_agents_py href "src/pactkit/prompts/agents.py"
+    src_pactkit_prompts_workflows_py["workflows.py"]
+    click src_pactkit_prompts_workflows_py href "src/pactkit/prompts/workflows.py"
+    src_pactkit_prompts_commands_py["commands.py"]
+    click src_pactkit_prompts_commands_py href "src/pactkit/prompts/commands.py"
+    src_pactkit_skills_board_py["board.py"]
+    click src_pactkit_skills_board_py href "src/pactkit/skills/board.py"
+    src_pactkit_skills___init___py["__init__.py"]
+    click src_pactkit_skills___init___py href "src/pactkit/skills/__init__.py"
+    src_pactkit_skills_visualize_py["visualize.py"]
+    click src_pactkit_skills_visualize_py href "src/pactkit/skills/visualize.py"
+    src_pactkit_skills_spec_linter_py["spec_linter.py"]
+    click src_pactkit_skills_spec_linter_py href "src/pactkit/skills/spec_linter.py"
+    src_pactkit_skills_scaffold_py["scaffold.py"]
+    click src_pactkit_skills_scaffold_py href "src/pactkit/skills/scaffold.py"
+    src_pactkit_generators_deployer_py["deployer.py"]
+    click src_pactkit_generators_deployer_py href "src/pactkit/generators/deployer.py"
+    src_pactkit_generators_adapter_py["adapter.py"]
+    click src_pactkit_generators_adapter_py href "src/pactkit/generators/adapter.py"
+    src_pactkit_generators___init___py["__init__.py"]
+    click src_pactkit_generators___init___py href "src/pactkit/generators/__init__.py"
+    src_pactkit_config_py --> src_pactkit___init___py
+    src_pactkit_config_py --> src_pactkit_profiles_py
+    src_pactkit_lessons_py --> src_pactkit_schemas_py
+    src_pactkit_guards_py --> src_pactkit___init___py
+    src_pactkit_guards_py --> src_pactkit_config_py
+    src_pactkit_lint_runner_py --> src_pactkit_cleaners_py
+    src_pactkit_lint_runner_py --> src_pactkit_prompts_workflows_py
+    src_pactkit_lint_runner_py --> src_pactkit_config_py
+    src_pactkit_validators_py --> src_pactkit_schemas_py
+    src_pactkit_lazy_visualize_py --> src_pactkit_cleaners_py
+    src_pactkit_lazy_visualize_py --> src_pactkit_prompts_workflows_py
+    src_pactkit_context_gen_py --> src_pactkit_schemas_py
+    src_pactkit_cli_py --> src_pactkit___init___py
+    src_pactkit_cli_py --> src_pactkit_schemas_py
+    src_pactkit_cli_py --> src_pactkit_generators_deployer_py
+    src_pactkit_cli_py --> src_pactkit_config_py
+    src_pactkit_cli_py --> src_pactkit_skills_spec_linter_py
+    src_pactkit_cli_py --> src_pactkit_guards_py
+    src_pactkit_cli_py --> src_pactkit_id_generator_py
+    src_pactkit_cli_py --> src_pactkit_cleaners_py
+    src_pactkit_cli_py --> src_pactkit_regression_py
+    src_pactkit_cli_py --> src_pactkit_skills_visualize_py
+    src_pactkit_cli_py --> src_pactkit_context_gen_py
+    src_pactkit_cli_py --> src_pactkit_sec_scope_py
+    src_pactkit_cli_py --> src_pactkit_validators_py
+    src_pactkit_cli_py --> src_pactkit_lazy_visualize_py
+    src_pactkit_cli_py --> src_pactkit_doctor_py
+    src_pactkit_cli_py --> src_pactkit_backfill_py
+    src_pactkit_cli_py --> src_pactkit_issue_sync_py
+    src_pactkit_cli_py --> src_pactkit_test_mapper_py
+    src_pactkit_cli_py --> src_pactkit_lint_runner_py
+    src_pactkit_cli_py --> src_pactkit_lessons_py
+    src_pactkit_cli_py --> src_pactkit_invariants_py
+    src_pactkit_cli_py --> src_pactkit_coverage_gate_py
+    src_pactkit_cli_py --> src_pactkit_spec_status_py
+    src_pactkit_backfill_py --> src_pactkit_schemas_py
+    src_pactkit_spec_status_py --> src_pactkit_schemas_py
+    src_pactkit_issue_sync_py --> src_pactkit_config_py
+    src_pactkit_test_mapper_py --> src_pactkit_cleaners_py
+    src_pactkit_test_mapper_py --> src_pactkit_prompts_workflows_py
+    src_pactkit_doctor_py --> src_pactkit_config_py
+    src_pactkit_doctor_py --> src_pactkit_prompts_workflows_py
+    src_pactkit_prompts_skills_py --> src_pactkit_skills___init___py
+    src_pactkit_prompts_rules_py --> src_pactkit___init___py
+    src_pactkit_prompts_commands_py --> src_pactkit_prompts_workflows_py
+    src_pactkit_skills_spec_linter_py --> src_pactkit_schemas_py
+    src_pactkit_generators_deployer_py --> src_pactkit___init___py
+    src_pactkit_generators_deployer_py --> src_pactkit_config_py
+    src_pactkit_generators_deployer_py --> src_pactkit_profiles_py
+    src_pactkit_generators_deployer_py --> src_pactkit_skills___init___py
+    src_pactkit_generators_deployer_py --> src_pactkit_utils_py
+    src_pactkit_generators_deployer_py --> src_pactkit_schemas_py

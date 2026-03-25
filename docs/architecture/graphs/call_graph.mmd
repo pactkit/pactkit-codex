@@ -1,0 +1,414 @@
+graph TD
+    FrontendParser_parse["FrontendParser.parse"]
+    JavaAnalyzer__extract_funcs_and_calls["JavaAnalyzer._extract_funcs_and_calls"]
+    PdcaParser_parse["PdcaParser.parse"]
+    PythonAnalyzer_extract_functions_and_calls["PythonAnalyzer.extract_functions_and_calls"]
+    ServiceParser_parse["ServiceParser.parse"]
+    TSAnalyzer__extract_funcs_and_calls["TSAnalyzer._extract_funcs_and_calls"]
+    TreeSitterAnalyzer__captures["TreeSitterAnalyzer._captures"]
+    TreeSitterAnalyzer__extract_calls_from_body["TreeSitterAnalyzer._extract_calls_from_body"]
+    TreeSitterAnalyzer__extract_funcs_and_calls["TreeSitterAnalyzer._extract_funcs_and_calls"]
+    TreeSitterAnalyzer_extract_functions_and_calls["TreeSitterAnalyzer.extract_functions_and_calls"]
+    TreeSitterAnalyzer_extract_imports["TreeSitterAnalyzer.extract_imports"]
+    WorkflowGraph__sanitize_id["WorkflowGraph._sanitize_id"]
+    WorkflowGraph_to_mermaid["WorkflowGraph.to_mermaid"]
+    _add_fix_flag["_add_fix_flag"]
+    _build_bridge_edges["_build_bridge_edges"]
+    _build_call_graph["_build_call_graph"]
+    _build_class_graph["_build_class_graph"]
+    _build_file_graph["_build_file_graph"]
+    _build_reverse_graph["_build_reverse_graph"]
+    _check_acceptance_criteria["_check_acceptance_criteria"]
+    _check_gh_available["_check_gh_available"]
+    _check_implementation_steps["_check_implementation_steps"]
+    _check_metadata["_check_metadata"]
+    _check_optional_sections["_check_optional_sections"]
+    _check_req_ac_coverage["_check_req_ac_coverage"]
+    _check_requirements_section["_check_requirements_section"]
+    _check_security_scope["_check_security_scope"]
+    _classify_coverage["_classify_coverage"]
+    _classify_story["_classify_story"]
+    _cleanup_legacy["_cleanup_legacy"]
+    _convert_codex_frontmatter["_convert_codex_frontmatter"]
+    _create_issue["_create_issue"]
+    _deploy_codex["_deploy_codex"]
+    _deploy_codex_agents_md["_deploy_codex_agents_md"]
+    _deploy_codex_prompts["_deploy_codex_prompts"]
+    _deploy_skills["_deploy_skills"]
+    _detect_file_ext["_detect_file_ext"]
+    _detect_stack["_detect_stack"]
+    _extract_calls["_extract_calls"]
+    _extract_goal_from_prompt["_extract_goal_from_prompt"]
+    _extract_module_path["_extract_module_path"]
+    _extract_requirement_ids["_extract_requirement_ids"]
+    _find_enclosing_class["_find_enclosing_class"]
+    _find_entry_func["_find_entry_func"]
+    _find_section["_find_section"]
+    _format_result["_format_result"]
+    _generate_codex_config_toml["_generate_codex_config_toml"]
+    _generate_codex_project_files["_generate_codex_project_files"]
+    _get_done_ids["_get_done_ids"]
+    _get_git_branches["_get_git_branches"]
+    _get_issue_tracker_provider["_get_issue_tracker_provider"]
+    _get_last_n_entries["_get_last_n_entries"]
+    _inject_developer_prefix["_inject_developer_prefix"]
+    _is_doc_only["_is_doc_only"]
+    _is_docs_or_tests_only["_is_docs_or_tests_only"]
+    _is_duplicate["_is_duplicate"]
+    _is_local_import["_is_local_import"]
+    _is_specific["_is_specific"]
+    _is_version_file["_is_version_file"]
+    _jaccard_similarity["_jaccard_similarity"]
+    _load_code_graph["_load_code_graph"]
+    _load_scan_excludes["_load_scan_excludes"]
+    _parse_active_stories["_parse_active_stories"]
+    _parse_app_router_pages["_parse_app_router_pages"]
+    _parse_board["_parse_board"]
+    _parse_commands["_parse_commands"]
+    _parse_component_imports["_parse_component_imports"]
+    _parse_coverage_output["_parse_coverage_output"]
+    _parse_docker_compose["_parse_docker_compose"]
+    _parse_hook_store_imports["_parse_hook_store_imports"]
+    _parse_item_type["_parse_item_type"]
+    _parse_last_lessons["_parse_last_lessons"]
+    _parse_mq_config["_parse_mq_config"]
+    _parse_openapi["_parse_openapi"]
+    _parse_pages_router["_parse_pages_router"]
+    _parse_pdca_sequence["_parse_pdca_sequence"]
+    _parse_proto_files["_parse_proto_files"]
+    _parse_recent_completions["_parse_recent_completions"]
+    _parse_routing_table["_parse_routing_table"]
+    _parse_story_blocks["_parse_story_blocks"]
+    _parse_vue_routes["_parse_vue_routes"]
+    _path_ends_with_ext["_path_ends_with_ext"]
+    _path_matches_any["_path_matches_any"]
+    _read_content["_read_content"]
+    _read_developer_prefix["_read_developer_prefix"]
+    _render_prompt["_render_prompt"]
+    _render_skill_md["_render_skill_md"]
+    _resolve_callee["_resolve_callee"]
+    _resolve_test_path["_resolve_test_path"]
+    _rewrite_yaml["_rewrite_yaml"]
+    _run_pytest_cov["_run_pytest_cov"]
+    _scan_call_edges["_scan_call_edges"]
+    _scan_files["_scan_files"]
+    _scan_hooks["_scan_hooks"]
+    _scan_mq_source_patterns["_scan_mq_source_patterns"]
+    _scan_skill_files["_scan_skill_files"]
+    _scan_stores["_scan_stores"]
+    _search_issue["_search_issue"]
+    _section_text["_section_text"]
+    _select_analyzer["_select_analyzer"]
+    _strip_code_blocks["_strip_code_blocks"]
+    _strip_model_references["_strip_model_references"]
+    _strip_model_selection_table["_strip_model_selection_table"]
+    _toml_value["_toml_value"]
+    _truncate_agents_md["_truncate_agents_md"]
+    _validate_developer["_validate_developer"]
+    _write_toml_with_markers["_write_toml_with_markers"]
+    add_story["add_story"]
+    append_lesson["append_lesson"]
+    archive_stories["archive_stories"]
+    atomic_write["atomic_write"]
+    auto_merge_config_file["auto_merge_config_file"]
+    build_unified_graph["build_unified_graph"]
+    build_workflow_graph["build_workflow_graph"]
+    check_config_completeness["check_config_completeness"]
+    check_config_drift["check_config_drift"]
+    check_coverage["check_coverage"]
+    check_init_markers["check_init_markers"]
+    check_stale_graphs["check_stale_graphs"]
+    check_version_mismatch["check_version_mismatch"]
+    classify_changes["classify_changes"]
+    clean_artifacts["clean_artifacts"]
+    create_board["create_board"]
+    create_e2e["create_e2e"]
+    create_prd["create_prd"]
+    create_skill["create_skill"]
+    create_spec["create_spec"]
+    create_test_file["create_test_file"]
+    deploy["deploy"]
+    detect_security_scope["detect_security_scope"]
+    detect_stack["detect_stack"]
+    detect_topology["detect_topology"]
+    export_focus_graphs["export_focus_graphs"]
+    find_pactkit_yaml["find_pactkit_yaml"]
+    fix_board["fix_board"]
+    generate_context["generate_context"]
+    generate_default_yaml["generate_default_yaml"]
+    get_default_config["get_default_config"]
+    get_profile["get_profile"]
+    git_start["git_start"]
+    impact["impact"]
+    init_architecture["init_architecture"]
+    is_environment_format["is_environment_format"]
+    issue_sync["issue_sync"]
+    list_stories["list_stories"]
+    load_config["load_config"]
+    load_script["load_script"]
+    main["main"]
+    map_to_tests["map_to_tests"]
+    nl["nl"]
+    regression_workflow_impact["regression_workflow_impact"]
+    resolve_pactkit_yaml_dir["resolve_pactkit_yaml_dir"]
+    run_lint["run_lint"]
+    scan_and_replace_tbd["scan_and_replace_tbd"]
+    should_visualize["should_visualize"]
+    strip_frontmatter["strip_frontmatter"]
+    transform["transform"]
+    update_task["update_task"]
+    validate_spec["validate_spec"]
+    visualize["visualize"]
+    workflow_impact["workflow_impact"]
+    classify_changes --> _is_doc_only
+    classify_changes --> _is_version_file
+    resolve_pactkit_yaml_dir --> is_environment_format
+    resolve_pactkit_yaml_dir --> get_profile
+    resolve_pactkit_yaml_dir --> get_profile
+    load_config --> get_default_config
+    load_config --> _validate_developer
+    load_config --> find_pactkit_yaml
+    load_config --> get_default_config
+    auto_merge_config_file --> get_default_config
+    auto_merge_config_file --> _rewrite_yaml
+    generate_default_yaml --> get_default_config
+    _is_duplicate --> _jaccard_similarity
+    append_lesson --> _get_last_n_entries
+    append_lesson --> _is_duplicate
+    append_lesson --> _is_specific
+    check_init_markers --> find_pactkit_yaml
+    check_config_completeness --> find_pactkit_yaml
+    check_version_mismatch --> find_pactkit_yaml
+    check_version_mismatch --> load_config
+    detect_security_scope --> _is_docs_or_tests_only
+    detect_security_scope --> _read_content
+    detect_security_scope --> _path_ends_with_ext
+    detect_security_scope --> _path_matches_any
+    detect_security_scope --> _path_ends_with_ext
+    detect_security_scope --> _path_matches_any
+    detect_security_scope --> _path_matches_any
+    detect_security_scope --> _path_matches_any
+    detect_security_scope --> _path_ends_with_ext
+    run_lint --> detect_stack
+    run_lint --> find_pactkit_yaml
+    run_lint --> _add_fix_flag
+    run_lint --> load_config
+    should_visualize --> detect_stack
+    generate_context --> _get_git_branches
+    generate_context --> _parse_last_lessons
+    generate_context --> _parse_board
+    generate_context --> _parse_active_stories
+    generate_context --> _parse_recent_completions
+    main --> validate_spec
+    main --> _format_result
+    main --> validate_spec
+    main --> _format_result
+    scan_and_replace_tbd --> _get_done_ids
+    clean_artifacts --> detect_stack
+    _parse_coverage_output --> _classify_coverage
+    check_coverage --> _parse_coverage_output
+    check_coverage --> _extract_module_path
+    check_coverage --> _run_pytest_cov
+    _get_issue_tracker_provider --> find_pactkit_yaml
+    issue_sync --> _parse_item_type
+    issue_sync --> _get_issue_tracker_provider
+    issue_sync --> _search_issue
+    issue_sync --> _create_issue
+    issue_sync --> _check_gh_available
+    map_to_tests --> detect_stack
+    check_config_drift --> find_pactkit_yaml
+    check_stale_graphs --> load_config
+    add_story --> nl
+    add_story --> nl
+    add_story --> nl
+    add_story --> nl
+    add_story --> nl
+    add_story --> nl
+    add_story --> nl
+    fix_board --> _parse_story_blocks
+    fix_board --> _classify_story
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    fix_board --> nl
+    update_task --> fix_board
+    list_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    archive_stories --> nl
+    init_architecture --> nl
+    init_architecture --> nl
+    _detect_file_ext --> _detect_stack
+    PythonAnalyzer_extract_functions_and_calls --> _extract_calls
+    PythonAnalyzer_extract_functions_and_calls --> _extract_calls
+    TreeSitterAnalyzer_extract_imports --> TreeSitterAnalyzer__captures
+    TreeSitterAnalyzer_extract_functions_and_calls --> TreeSitterAnalyzer__extract_funcs_and_calls
+    TreeSitterAnalyzer__extract_calls_from_body --> TreeSitterAnalyzer__captures
+    JavaAnalyzer__extract_funcs_and_calls --> _find_enclosing_class
+    TSAnalyzer__extract_funcs_and_calls --> _find_enclosing_class
+    _build_file_graph --> nl
+    _build_class_graph --> nl
+    _build_call_graph --> _resolve_callee
+    _build_call_graph --> _resolve_callee
+    _build_call_graph --> nl
+    _build_call_graph --> nl
+    _build_reverse_graph --> _find_entry_func
+    _build_reverse_graph --> _resolve_callee
+    impact --> _load_scan_excludes
+    impact --> _detect_stack
+    impact --> _select_analyzer
+    impact --> _scan_call_edges
+    impact --> _build_reverse_graph
+    impact --> _scan_files
+    impact --> _scan_files
+    impact --> _detect_file_ext
+    impact --> _scan_files
+    impact --> _resolve_test_path
+    visualize --> _load_scan_excludes
+    visualize --> _detect_stack
+    visualize --> _select_analyzer
+    visualize --> build_unified_graph
+    visualize --> build_workflow_graph
+    visualize --> _scan_files
+    visualize --> _scan_files
+    visualize --> _detect_file_ext
+    visualize --> _scan_files
+    visualize --> _build_class_graph
+    visualize --> export_focus_graphs
+    visualize --> _build_file_graph
+    visualize --> _scan_call_edges
+    visualize --> _build_reverse_graph
+    visualize --> _build_call_graph
+    visualize --> nl
+    WorkflowGraph_to_mermaid --> WorkflowGraph__sanitize_id
+    WorkflowGraph_to_mermaid --> WorkflowGraph__sanitize_id
+    WorkflowGraph_to_mermaid --> nl
+    WorkflowGraph_to_mermaid --> WorkflowGraph__sanitize_id
+    WorkflowGraph_to_mermaid --> WorkflowGraph__sanitize_id
+    PdcaParser_parse --> _parse_commands
+    PdcaParser_parse --> _parse_routing_table
+    PdcaParser_parse --> _scan_skill_files
+    PdcaParser_parse --> _parse_pdca_sequence
+    ServiceParser_parse --> _parse_docker_compose
+    ServiceParser_parse --> _parse_openapi
+    ServiceParser_parse --> _parse_proto_files
+    ServiceParser_parse --> _parse_mq_config
+    ServiceParser_parse --> _scan_mq_source_patterns
+    _parse_component_imports --> _is_local_import
+    _parse_component_imports --> _is_local_import
+    _parse_hook_store_imports --> _is_local_import
+    _parse_hook_store_imports --> _is_local_import
+    FrontendParser_parse --> _parse_component_imports
+    FrontendParser_parse --> _scan_hooks
+    FrontendParser_parse --> _scan_stores
+    FrontendParser_parse --> _parse_hook_store_imports
+    FrontendParser_parse --> _parse_app_router_pages
+    FrontendParser_parse --> _parse_pages_router
+    FrontendParser_parse --> _parse_vue_routes
+    regression_workflow_impact --> build_workflow_graph
+    workflow_impact --> build_workflow_graph
+    workflow_impact --> nl
+    build_workflow_graph --> detect_topology
+    _load_code_graph --> _detect_stack
+    _load_code_graph --> _select_analyzer
+    _load_code_graph --> _load_scan_excludes
+    _load_code_graph --> _scan_files
+    _load_code_graph --> _resolve_callee
+    build_unified_graph --> build_workflow_graph
+    build_unified_graph --> _load_code_graph
+    build_unified_graph --> _build_bridge_edges
+    _section_text --> _find_section
+    _check_requirements_section --> _section_text
+    _check_acceptance_criteria --> _section_text
+    _check_acceptance_criteria --> _section_text
+    _check_req_ac_coverage --> _section_text
+    _check_req_ac_coverage --> _section_text
+    _check_req_ac_coverage --> _extract_requirement_ids
+    _check_implementation_steps --> _section_text
+    _check_optional_sections --> _section_text
+    _check_optional_sections --> _section_text
+    _check_optional_sections --> _section_text
+    _check_optional_sections --> _section_text
+    _check_security_scope --> _section_text
+    validate_spec --> _strip_code_blocks
+    validate_spec --> _check_metadata
+    validate_spec --> _check_requirements_section
+    validate_spec --> _check_acceptance_criteria
+    validate_spec --> _check_optional_sections
+    validate_spec --> _check_implementation_steps
+    validate_spec --> _check_req_ac_coverage
+    validate_spec --> _check_security_scope
+    git_start --> _inject_developer_prefix
+    create_test_file --> nl
+    create_e2e --> _inject_developer_prefix
+    create_e2e --> nl
+    _inject_developer_prefix --> _read_developer_prefix
+    create_spec --> _inject_developer_prefix
+    create_skill --> nl
+    create_skill --> nl
+    create_board --> nl
+    create_prd --> nl
+    _render_skill_md --> _render_prompt
+    _render_skill_md --> _render_prompt
+    _render_skill_md --> get_profile
+    deploy --> _deploy_codex
+    _deploy_codex --> get_profile
+    _deploy_codex --> find_pactkit_yaml
+    _deploy_codex --> _deploy_skills
+    _deploy_codex --> _cleanup_legacy
+    _deploy_codex --> _deploy_codex_agents_md
+    _deploy_codex --> _deploy_codex_prompts
+    _deploy_codex --> _generate_codex_config_toml
+    _deploy_codex --> auto_merge_config_file
+    _deploy_codex --> load_config
+    _deploy_codex --> _generate_codex_project_files
+    _deploy_codex_agents_md --> _render_prompt
+    _deploy_codex_agents_md --> _strip_model_references
+    _deploy_codex_agents_md --> atomic_write
+    _deploy_codex_agents_md --> _strip_model_selection_table
+    _deploy_codex_agents_md --> _extract_goal_from_prompt
+    _deploy_codex_agents_md --> _truncate_agents_md
+    _generate_codex_project_files --> _detect_stack
+    _generate_codex_project_files --> atomic_write
+    _generate_codex_project_files --> atomic_write
+    _deploy_codex_prompts --> _convert_codex_frontmatter
+    _deploy_codex_prompts --> _render_prompt
+    _deploy_codex_prompts --> _strip_model_references
+    _deploy_codex_prompts --> atomic_write
+    _generate_codex_config_toml --> _write_toml_with_markers
+    _write_toml_with_markers --> atomic_write
+    _write_toml_with_markers --> _toml_value
+    _write_toml_with_markers --> _toml_value
+    _write_toml_with_markers --> _toml_value
+    _write_toml_with_markers --> _toml_value
+    _deploy_skills --> get_profile
+    _deploy_skills --> _render_skill_md
+    _deploy_skills --> atomic_write
+    _deploy_skills --> atomic_write
+    _deploy_skills --> _render_skill_md
+    _deploy_skills --> atomic_write
+    _deploy_skills --> load_script
+    _deploy_skills --> load_script
+    _deploy_skills --> load_script
+    transform --> strip_frontmatter

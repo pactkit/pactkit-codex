@@ -2,24 +2,25 @@
 > Last updated: 2026-03-25T00:00:00Z by /project-done
 
 ## Sprint Status
-Backlog: 0 | In Progress: 0 | Done: 8 stories
+Backlog: 0 | In Progress: 0 | Done: 12 (STORY-001~009, BUG-001~003)
 
 ## Current Stories
-None — all stories complete.
+None — all stories and bugs completed.
 
 ## Recent Completions
-- STORY-008: E2E Verification in Real Codex CLI
-- STORY-007: Update Playbook Text Paths for Codex
-- STORY-006: config.toml Generator (MCP, Sandbox, Hooks)
+- STORY-009: Remove OpenCode/Classic deployment code (deployer.py 75% smaller)
+- BUG-003: Strip Claude/Anthropic brand refs from deployed artifacts
+- BUG-002: Exclude project-sprint from Codex deployment
 
 ## Active Branches
-* develop (ahead of origin/develop by 2 commits)
+- develop (current)
 
 ## Key Decisions
 - Codex CLI is single-agent: rules inlined into AGENTS.md, no separate agent files
-- Template variables ({SKILLS_ROOT}, {GLOBAL_CONFIG_DIR}) used for all env-specific paths
-- TOML config uses additive-only merge with [pactkit:managed] markers
-- Interactive Codex TUI tests (R2, R3, R6) require manual verification
+- Codex prompts ARE commands — single concept, commands_dir = prompts_dir
+- Multi-agent commands (project-sprint) excluded via CODEX_EXCLUDED_PROMPTS
+- Brand sanitization applied at all output points with grep-based E2E verification
+- Fork cleanup (STORY-009) done early: deployer.py 2187 → 549 lines
 
 ## Next Recommended Action
-All 8 stories complete. Run `/project-pr` to push and create a pull request, or `/project-release` if ready to tag v0.1.0.
+All sprint items complete. Run `/project-pr` to push and create a pull request, or `/project-release` if ready to tag v0.1.0.

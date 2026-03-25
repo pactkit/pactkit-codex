@@ -64,9 +64,9 @@ def main():
     init_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
-        default="classic",
-        help="Output format: classic (default), plugin, marketplace, or opencode",
+        choices=["codex"],
+        default="codex",
+        help="Output format (codex)",
     )
     init_parser.add_argument(
         "--agent",
@@ -107,9 +107,9 @@ def main():
     update_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
-        default="classic",
-        help="Output format: classic (default), plugin, marketplace, or opencode",
+        choices=["codex"],
+        default="codex",
+        help="Output format (codex)",
     )
     update_parser.add_argument(
         "--agent",
@@ -157,9 +157,9 @@ def main():
     upgrade_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
-        default="classic",
-        help="Output format: classic (default), plugin, marketplace, or opencode",
+        choices=["codex"],
+        default="codex",
+        help="Output format (codex)",
     )
     upgrade_parser.add_argument(
         "--agent",
@@ -303,7 +303,7 @@ def main():
 
             from pactkit.config import load_config
 
-            yaml_path = Path.cwd() / ".claude" / "pactkit.yaml"
+            yaml_path = Path.cwd() / ".codex" / "pactkit.yaml"
             if yaml_path.exists():
                 cfg = load_config(yaml_path)
                 yaml_version = cfg.get("version", "")

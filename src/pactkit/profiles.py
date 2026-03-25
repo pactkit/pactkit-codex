@@ -108,48 +108,6 @@ class FormatProfile:
 # ---------------------------------------------------------------------------
 
 FORMAT_PROFILES: dict[str, FormatProfile] = {
-    "classic": FormatProfile(
-        name="classic",
-        display_name="Claude Code",
-        global_config_dir="~/.claude",
-        project_config_dir=".claude",
-        skills_dir="~/.claude/skills",
-        agents_dir="~/.claude/agents",
-        commands_dir="~/.claude/commands",
-        rules_dir="~/.claude/rules",
-        prompts_dir=None,  # Claude Code uses commands_dir instead
-        project_instructions_file="CLAUDE.md",
-        global_instructions_file="CLAUDE.md",
-        pactkit_yaml_path=".claude/pactkit.yaml",
-        agent_format="md",
-        rules_import_style="@import",
-        excluded_agent_fields=frozenset(),  # Classic: include all fields
-        has_custom_commands=True,
-        supports_model_routing=False,
-        supports_mcp=True,
-        skills_path_var="~/.claude/skills",
-    ),
-    "opencode": FormatProfile(
-        name="opencode",
-        display_name="OpenCode",
-        global_config_dir="~/.config/opencode",
-        project_config_dir=".opencode",
-        skills_dir="~/.config/opencode/skills",
-        agents_dir="~/.config/opencode/agents",
-        commands_dir="~/.config/opencode/commands",
-        rules_dir="~/.config/opencode/rules",
-        prompts_dir=None,  # OpenCode uses commands_dir instead
-        project_instructions_file="AGENTS.md",
-        global_instructions_file="AGENTS.md",
-        pactkit_yaml_path=".opencode/pactkit.yaml",
-        agent_format="md",
-        rules_import_style="instructions",
-        excluded_agent_fields=frozenset({"permissionMode", "memory", "skills"}),
-        has_custom_commands=True,
-        supports_model_routing=True,
-        supports_mcp=True,
-        skills_path_var="~/.config/opencode/skills",
-    ),
     "codex": FormatProfile(
         name="codex",
         display_name="Codex CLI",
@@ -157,7 +115,7 @@ FORMAT_PROFILES: dict[str, FormatProfile] = {
         project_config_dir=".codex",
         skills_dir="~/.codex/skills",
         agents_dir=None,  # Codex is single-agent — no agent files
-        commands_dir=None,  # Codex has no commands concept
+        commands_dir="~/.codex/prompts",  # Codex slash commands via prompts/
         rules_dir=None,  # Codex uses inline rules in AGENTS.md
         prompts_dir="~/.codex/prompts",  # Codex custom slash commands
         project_instructions_file="AGENTS.md",
@@ -166,24 +124,18 @@ FORMAT_PROFILES: dict[str, FormatProfile] = {
         agent_format="md",  # AGENTS.md is plain markdown
         rules_import_style="inline",
         excluded_agent_fields=frozenset({"permissionMode", "memory", "skills", "hooks"}),
-        has_custom_commands=False,
+        has_custom_commands=True,  # Codex supports slash commands via prompts/
         supports_model_routing=False,  # Single model per session
         supports_mcp=True,
         skills_path_var="~/.codex/skills",
     ),
 }
 
-# Deployment modes that are not environment formats
-_DEPLOYMENT_MODES: frozenset[str] = frozenset({"plugin", "marketplace"})
+# All valid --format values (Codex-only project)
+VALID_FORMATS: frozenset[str] = frozenset(FORMAT_PROFILES.keys())
 
-# All valid --format values: environment profiles + deployment modes
-VALID_FORMATS: frozenset[str] = frozenset(FORMAT_PROFILES.keys()) | _DEPLOYMENT_MODES
-
-# Ordered candidate paths for pactkit.yaml discovery (first existing wins)
-# Order = preference: OpenCode > Classic > Codex
+# Candidate paths for pactkit.yaml discovery
 PACTKIT_YAML_CANDIDATES: list[str] = [
-    FORMAT_PROFILES["opencode"].pactkit_yaml_path,
-    FORMAT_PROFILES["classic"].pactkit_yaml_path,
     FORMAT_PROFILES["codex"].pactkit_yaml_path,
 ]
 

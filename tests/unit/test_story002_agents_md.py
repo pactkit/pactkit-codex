@@ -1,8 +1,6 @@
 """Tests for STORY-002: Global AGENTS.md Generator with Inlined Rules."""
 
 import os
-import re
-from pathlib import Path
 
 import pytest
 

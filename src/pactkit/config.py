@@ -240,8 +240,8 @@ def detect_venv(project_root: Path) -> tuple[str, str] | None:
 # ---------------------------------------------------------------------------
 
 # Search order for pactkit.yaml — auto-generated from FORMAT_PROFILES.
-# Priority: OpenCode > Classic > Codex (newer environments preferred).
-# To change priority or add a new format, update profiles.py — not here.
+# Codex-only project: single candidate path.
+# To change, update profiles.py — not here.
 from pactkit.profiles import (  # noqa: E402, F401
     FORMAT_PROFILES,
     PACTKIT_YAML_CANDIDATES,
@@ -298,8 +298,8 @@ def resolve_pactkit_yaml_dir(cwd: Path | None = None, format: str | None = None)
         if parent_dir.is_dir():
             return cwd / candidate
 
-    # Default fallback: classic
-    return cwd / get_profile("classic").pactkit_yaml_path
+    # Default fallback: codex
+    return cwd / get_profile("codex").pactkit_yaml_path
 
 
 # ---------------------------------------------------------------------------
@@ -332,9 +332,8 @@ def load_config(path: Path | str | None = None) -> dict:
     """Load pactkit.yaml from *path*, merging with defaults.
 
     If *path* is ``None``, searches candidate paths (STORY-072):
-      1. $CWD/.claude/pactkit.yaml (Claude Code)
-      2. $CWD/.opencode/pactkit.yaml (OpenCode)
-      3. Returns default config if neither exists.
+      1. $CWD/.codex/pactkit.yaml (Codex CLI)
+      2. Returns default config if not found.
 
     Missing keys in the user file inherit from defaults.
 
