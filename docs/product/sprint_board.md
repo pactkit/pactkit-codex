@@ -8,6 +8,22 @@
 
 ## ✅ Done
 
+### [STORY-013] Thin Wrapper Architecture for Prompts
+> Spec: (inline hotfix)
+
+- [x] 1. Create `~/.codex/playbooks/` for full workflow content
+- [x] 2. Make prompts thin wrappers (4 lines) pointing to playbooks
+- [x] 3. Move Prerequisites from prompts to playbooks
+- [x] 4. Update tests for new architecture
+- [x] 5. Release v0.2.0
+
+### [HOTFIX-001] Codex config.toml Fixes
+> Spec: (inline hotfix)
+
+- [x] 1. Fix approval_policy: "suggest" → "on-request" (v0.1.1)
+- [x] 2. Remove auto pactkit-update from core-protocol (sandbox blocks home writes)
+- [x] 3. Remove default model from config.toml — let Codex CLI manage (v0.1.2)
+
 ### [STORY-012] Incremental Update Command (`pactkit-codex update`)
 > Spec: docs/specs/STORY-012.md
 
