@@ -115,7 +115,13 @@ allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 4.  **Output checkpoint**: Print "Spec lint passed (0 errors AND 0 warnings)."
 
 ## 🎬 Phase 3.3: Board, Memory & Handover
-1.  **Board**: Add Story using `add_story`.
+1.  **Board**: Add Story to sprint board:
+    ```bash
+    python3 ~/.codex/skills/pactkit-board/scripts/board.py add_story "{ID}" "{title}" "1. Task one|2. Task two|..."
+    ```
+    - `{ID}` is the Story ID from Phase 3.1 (e.g., STORY-014)
+    - `{title}` is the short title from the Spec
+    - Tasks are pipe-separated, extracted from the Requirements section
 2.  **Memory MCP (Conditional)**: IF Memory MCP is available, use create_entities to store design context (decisions, target files, rationale) under entity `{STORY_ID}`. Record story dependencies if applicable.
 3.  **Session Context Update**: Run `pactkit context` to generate `docs/product/context.md`. Set "Last updated by" to `/project-plan`.
 4.  **Handover**: "Trace complete. Spec created. Ready for Act."

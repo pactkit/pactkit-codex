@@ -1,26 +1,23 @@
 # Project Context (Auto-generated)
-> Last updated: 2026-03-25T22:30:00+08:00 by manual update
+> Last updated: 2026-03-25T18:27:11+08:00 by pactkit context
 
 ## Sprint Status
-Backlog: 0 | In Progress: 0 | Done: 19 items
+Backlog: 0 | In Progress: 0 | Done: 19 stories
 
 ## Current Stories
 None
 
 ## Recent Completions
-- STORY-013: Thin Wrapper Architecture for Prompts (v0.2.0)
-- HOTFIX-001: Codex config.toml Fixes (v0.1.1, v0.1.2)
-- STORY-012: Incremental Update Command (`pactkit-codex update`)
+- STORY-008: E2E Verification in Real Codex CLI
+- BUG-004: Package Name Collision — pactkit-codex Uses Same Package Name as pactkit
+- STORY-009: Remove OpenCode/Classic Deployment Code from pactkit-codex
 
 ## Active Branches
 * develop
+  main
 
 ## Key Decisions
-- v0.2.0 published to PyPI — prompts are now thin wrappers, full content in playbooks
-- Prompts: 4 lines (frontmatter + playbook pointer) — no more 100+ line dumps in Codex CLI
-- Playbooks: `~/.codex/playbooks/*.md` — full workflow content read by agent
-- config.toml: no default model (Codex CLI manages), approval_policy = on-request
-- pactkit update removed from core-protocol (sandbox restriction)
+- Project initialized — greenfield, no source code yet
 
 ## Next Recommended Action
-v0.2.0 stable — monitor Codex CLI usage, start next sprint with `/project-design` for new features
+`/project-design`
