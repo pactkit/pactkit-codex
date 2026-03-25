@@ -1,0 +1,130 @@
+# PactKit Configuration
+# Edit this file to customize which components are deployed.
+# Remove items from a list to disable them. Default: all enabled.
+
+version: "0.1.1"
+stack: python
+root: .
+developer: ""
+
+# Agents — AI role definitions
+agents:
+  - code-explorer
+  - product-designer
+  - qa-engineer
+  - repo-maintainer
+  - security-auditor
+  - senior-developer
+  - system-architect
+  - system-medic
+  - visual-architect
+
+# Commands — PDCA playbooks
+commands:
+  - project-act
+  - project-check
+  - project-clarify
+  - project-design
+  - project-done
+  - project-hotfix
+  - project-init
+  - project-plan
+  - project-pr
+  - project-release
+  - project-sprint
+
+# Skills — tool scripts
+skills:
+  - pactkit-analyze
+  - pactkit-board
+  - pactkit-doctor
+  - pactkit-draw
+  - pactkit-release
+  - pactkit-review
+  - pactkit-scaffold
+  - pactkit-status
+  - pactkit-trace
+  - pactkit-visualize
+
+# Rules — constitution modules
+rules:
+  - 01-core-protocol
+  - 02-hierarchy-of-truth
+  - 03-file-atlas
+  - 04-routing-table
+  - 05-workflow-conventions
+  - 06-mcp-integration
+  - 07-shared-protocols
+  - 08-architecture-principles
+  - 09-sectional-write
+
+# CI/CD — set provider to github or gitlab to generate pipeline config
+ci:
+  provider: none
+  # runner: ubuntu-latest
+  # language_version: "3.11"
+  # github_host: ""  # GHE server (empty = github.com)
+  # actions_ref: ""  # GHE actions prefix
+
+# Issue Tracker — set provider to github to link stories to issues
+issue_tracker:
+  provider: none
+
+# Hooks — safe, report-only hook templates (command-type only)
+hooks:
+  post_test_coverage: false
+  pre_commit_lint: false
+  pre_push_check: false
+
+# Lint — configure lint behavior in /project-done
+lint_blocking: false
+auto_fix: false
+
+# Virtual Environment — configure venv detection and paths
+venv:
+  auto_detect: true
+
+# Release — configure release automation behavior
+release:
+  github_release: false
+
+# Regression — configure impact-based test selection strategy
+regression:
+  strategy: impact
+  max_impact_tests: 50
+
+# Check — configure QA verification behavior
+check:
+  security_checklist: true
+  security_scope_override: none
+
+# Done — configure commit and lesson quality behavior
+done:
+  lesson_quality_threshold: 15
+
+# Visualize — configure directory scan exclusions
+visualize:
+  scan_excludes:
+    - venv
+    - _venv
+    - .venv
+    - .env
+    - env
+    - __pycache__
+    - .git
+    - .codex
+    - tests
+    - docs
+    - node_modules
+    - site-packages
+    - dist
+    - build
+
+# Custom — user-defined keys (preserved by PactKit)
+e2e:
+  api_spec: ''
+  blocking: false
+  compose_file: docker-compose.test.yml
+  env_file: .env.test
+  test_dir: tests/e2e
+  type: none

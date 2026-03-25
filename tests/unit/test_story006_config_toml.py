@@ -24,11 +24,11 @@ class TestConfigToml:
         return codex_root / "config.toml"
 
     def test_ac1_config_created_when_absent(self, codex_root):
-        """AC1: config.toml created with model, sandbox_mode, approval_policy, and MCP."""
+        """AC1: config.toml created with sandbox_mode, approval_policy, and MCP (model left to Codex)."""
         config_path = self._generate(codex_root)
         assert config_path.exists()
         data = tomllib.loads(config_path.read_text())
-        assert "model" in data
+        # model not set — Codex CLI fills it after login
         assert "sandbox_mode" in data
         assert "approval_policy" in data
         assert "mcp_servers" in data
@@ -43,7 +43,7 @@ class TestConfigToml:
 
         _generate_codex_config_toml(codex_root)
         data = tomllib.loads(config_path.read_text())
-        assert data["model"] == "gpt-4o"  # NOT overwritten to o4-mini
+        assert data["model"] == "gpt-4o"  # User value preserved
         assert "mcp_servers" in data  # MCP added
 
     def test_ac3_valid_toml(self, codex_root):
@@ -68,10 +68,11 @@ class TestConfigToml:
         assert "organization" not in content
 
     def test_r3_defaults(self, codex_root):
-        """R3: Default values match spec."""
+        """R3: Default values match spec (model left to Codex CLI)."""
         config_path = self._generate(codex_root)
         data = tomllib.loads(config_path.read_text())
-        assert data["model"] == "o4-mini"
+        # model not set by pactkit — Codex CLI fills it after login
+        assert "model" not in data
         assert data["sandbox_mode"] == "workspace-write"
         assert data["approval_policy"] == "on-request"
 

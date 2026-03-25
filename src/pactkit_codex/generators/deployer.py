@@ -554,7 +554,6 @@ def _generate_codex_config_toml(codex_root):
     config_path = codex_root / "config.toml"
 
     pactkit_defaults = {
-        "model": "o4-mini",
         "sandbox_mode": "workspace-write",
         "approval_policy": "on-request",
     }
