@@ -168,7 +168,7 @@ allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 2.  **Board entry exists?**: Check if `{STORY_ID}` appears in `docs/product/sprint_board.md`. If not: WARN "Board entry not found".
 3.  **Move to In Progress**: If `{STORY_ID}` is in Backlog section, use Edit tool to move it to "## 🔄 In Progress" section.
 4.  **Update Spec Status**: Run `pactkit spec-status docs/specs/{STORY_ID}.md "In Progress"` to update Status field.
-4.  **Continue**: Regardless of findings, proceed to Phase 1.
+5.  **Continue**: Regardless of findings, proceed to Phase 1.
 
 ## 🎬 Phase 1: Precision Targeting
 1.  **Targeted Visual Scan**: Run `visualize --focus <module>` only (single targeted mode). For large codebases, add `--depth 2`. Do NOT run full 3-mode visualize here — that is handled by Phase 4 Lazy Visualize after implementation.
@@ -466,7 +466,7 @@ Run `pactkit coverage-gate <changed-files>` to verify coverage on changed source
     - `pactkit lint-context` — validates `docs/product/context.md` structure
     - `pactkit lint-lessons` — validates `docs/architecture/governance/lessons.md` structure
     - These are non-blocking: report warnings but do not stop the Done flow.
-6.  **Spec Status Update (MANDATORY)**: Run `pactkit spec-status docs/specs/{STORY_ID}.md Done` to update `| Status | Draft |` to `| Status | Done |` in the spec file. If `pactkit spec-status` is unavailable, manually edit the spec file.
+6.  **Spec Status Update (MANDATORY)**: Run `pactkit spec-status docs/specs/{STORY_ID}.md Done` to update the Status field (from "In Progress" or "Draft") to "Done" in the spec file. If `pactkit spec-status` is unavailable, manually edit the spec file.
 7.  **Memory MCP (Conditional)**: IF Memory MCP is available, use add_observations to record lessons learned (patterns, pitfalls, key files) on the `{STORY_ID}` entity.
 
 ## 🎬 Phase 3.5: Archive (Optional)
@@ -612,7 +612,14 @@ allowed-tools: [Read, Write, Edit, Bash, Glob]
 
 ## 🎬 Phase 5: Knowledge Base (The Law)
 1.  **Law**: Write `docs/architecture/governance/rules.md`.
-2.  **History**: Write `docs/architecture/governance/lessons.md`.
+2.  **History**: Run `mkdir -p docs/architecture/governance`. If `docs/architecture/governance/lessons.md` does not exist, create it with:
+    ```
+    # Lessons Learned
+
+    | Date | Lesson | Context |
+    |------|--------|---------|
+    ```
+    (Note: `pactkit lesson-append` also auto-creates this file if missing — this step ensures it exists before the first Done cycle.)
 
 ## 🎬 Phase 6: Session Context Bootstrap
 1.  **Generate Context**: Run `pactkit context` to generate `docs/product/context.md`. Set "Last updated by" to `/project-init`.
