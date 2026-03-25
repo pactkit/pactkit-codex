@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | ID | STORY-010 |
-| Status | Draft |
+| Status | Done |
 | Priority | P1 (Impact 4 / Effort 2) |
 | Release | 0.1.0 |
 

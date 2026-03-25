@@ -29,6 +29,69 @@ from pactkit_codex.utils import atomic_write
 # Commands excluded from Codex deployment (require multi-agent capabilities)
 CODEX_EXCLUDED_PROMPTS = frozenset({"project-sprint.md"})
 
+# Version marker filename (STORY-012)
+VERSION_MARKER_FILE = ".pactkit-version"
+
+
+# --- Version tracking (STORY-012) ---
+
+
+def _write_version_marker(codex_root: Path, version: str | None = None) -> None:
+    """Write version marker to ~/.codex/.pactkit-version."""
+    v = version if version is not None else __version__
+    atomic_write(codex_root / VERSION_MARKER_FILE, v + "\n")
+
+
+def _read_deployed_version(codex_root: Path) -> str | None:
+    """Read deployed version from marker file. Returns None if not found."""
+    marker = codex_root / VERSION_MARKER_FILE
+    if marker.exists():
+        return marker.read_text().strip()
+    return None
+
+
+def update(target=None, force=False, if_needed=False, dry_run=False) -> dict:
+    """Update deployed PactKit files incrementally (STORY-012).
+
+    Args:
+        target: Custom target directory (default: ~/.codex)
+        force: Bypass version check, always redeploy
+        if_needed: Silent no-op if already current
+        dry_run: Show plan without making changes
+
+    Returns:
+        dict with 'action' key: 'skip', 'updated', or 'dry_run'
+    """
+    codex_root = Path(target) if target else Path.home() / ".codex"
+
+    deployed_version = _read_deployed_version(codex_root)
+    needs_update = deployed_version != __version__
+
+    # Skip if already current (unless --force)
+    if not needs_update and not force:
+        if not if_needed:
+            print(f"✅ Already up to date (v{__version__})")
+        return {"action": "skip"}
+
+    # Dry-run mode: show what would be updated
+    if dry_run:
+        print(f"Would update ({deployed_version or 'none'} → {__version__}):")
+        print(f"  {codex_root}/AGENTS.md")
+        print(f"  {codex_root}/rules/*.md")
+        print(f"  {codex_root}/prompts/*.md")
+        print(f"  {codex_root}/skills/*/")
+        print("Preserved (user-owned):")
+        print(f"  {codex_root}/config.toml")
+        print("  .codex/AGENTS.local.md")
+        print("  .codex/pactkit.yaml")
+        return {"action": "dry_run"}
+
+    # Perform update
+    print(f"🔄 Updating PactKit ({deployed_version or 'none'} → {__version__})")
+    _deploy_codex(target=target)
+
+    return {"action": "updated"}
+
 
 # --- Template rendering ---
 
@@ -108,6 +171,10 @@ def _deploy_codex(target=None):
     n_skills = _deploy_skills(skills_dir, enabled_skills, profile=codex_profile)
     _cleanup_legacy(skills_dir)
 
+    rules_dir = codex_root / "rules"
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    _deploy_codex_rules(rules_dir, codex_profile)
+
     _deploy_codex_agents_md(codex_root, codex_profile)
 
     n_prompts = _deploy_codex_prompts(prompts_dir, codex_profile)
@@ -117,29 +184,64 @@ def _deploy_codex(target=None):
     if target is None:
         _generate_codex_project_files(Path.cwd())
 
+    # STORY-012: Write version marker for incremental updates
+    _write_version_marker(codex_root)
+
     print(
         f"\n✅ Codex CLI: {n_skills} Skills, {n_prompts} Prompts → {codex_root}"
     )
 
 
+def _deploy_codex_rules(rules_dir, profile):
+    """Deploy rule modules as separate files to ~/.codex/rules/ (STORY-011 R1)."""
+    from pactkit_codex.prompts.rules import CREDENTIAL_SAFETY_FILE, RULES_FILES
+
+    CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/", "~/.config/opencode/"]
+
+    for key, filename in RULES_FILES.items():
+        content = prompts.RULES_MODULES.get(key, "")
+        if not content:
+            continue
+        content = content.strip()
+        content = _strip_model_selection_table(content)
+        for pattern in CLAUDE_PATH_PATTERNS:
+            content = content.replace(pattern, "~/.codex/")
+        content = _strip_model_references(content)
+        atomic_write(rules_dir / filename, content + "\n")
+
+    # SEC-1: Deploy credential safety rule (user-managed but always required)
+    cred_path = rules_dir / CREDENTIAL_SAFETY_FILE
+    if not cred_path.exists():
+        atomic_write(cred_path, "# Credential Safety\n\n"
+                     "NEVER print passwords, keys, or tokens to stdout.\n"
+                     "NEVER commit secrets to version control.\n")
+
+
 def _deploy_codex_agents_md(codex_root, profile):
-    """Generate AGENTS.md with inlined rules for Codex CLI."""
-    MAX_SIZE = 20 * 1024
-    CODEX_INLINE_RULES = ["core", "hierarchy", "atlas", "workflow", "shared", "sectional"]
+    """Generate AGENTS.md with rules index table for Codex CLI (STORY-011 R3)."""
+
+    MAX_SIZE = 10 * 1024
     CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/"]
 
     lines = [f"# PactKit Global Constitution (v{__version__})", ""]
 
-    lines.append("## Rules")
+    # STORY-011 R3: Rules reference table (replaces inline rules)
+    lines.append("## Rules Reference")
     lines.append("")
-    for key in CODEX_INLINE_RULES:
-        content = prompts.RULES_MODULES.get(key, "")
-        if not content:
-            continue
-        stripped = content.strip()
-        stripped = _strip_model_selection_table(stripped)
-        lines.append(stripped)
-        lines.append("")
+    lines.append("Rules are stored in `~/.codex/rules/` and loaded on-demand by each command.")
+    lines.append("See individual command prompts for which rules apply to each PDCA phase.")
+    lines.append("")
+    lines.append("| Key | File | Scope |")
+    lines.append("|-----|------|-------|")
+    lines.append("| core | `01-core-protocol.md` | All commands |")
+    lines.append("| hierarchy | `02-hierarchy-of-truth.md` | Plan, Act, Check, Done, Hotfix |")
+    lines.append("| atlas | `03-file-atlas.md` | Most commands |")
+    lines.append("| workflow | `05-workflow-conventions.md` | Done, Release, PR, Hotfix |")
+    lines.append("| shared | `07-shared-protocols.md` | Plan, Act, Check, Done, Hotfix, Init |")
+    lines.append("| architecture | `08-architecture-principles.md` | Plan, Act, Design |")
+    lines.append("| sectional | `09-sectional-write.md` | Plan, Act, Init, Design |")
+    lines.append("| credential | `09-credential-safety.md` | All commands (SEC-1) |")
+    lines.append("")
 
     lines.append("## Agent Roles")
     lines.append("")
@@ -256,12 +358,19 @@ _CODEX_PROJECT_AGENTS_MD = """\
 # {project_name}
 
 > Read `docs/product/context.md` at session start for project state.
+> Read `.codex/AGENTS.local.md` for project-specific instructions.
 
 ## Dev Commands
 
 ```bash
 {dev_commands}
 ```
+"""
+
+_CODEX_LOCAL_AGENTS_MD = """\
+# Project Local Instructions
+# Add your custom Codex CLI instructions below.
+# PactKit will never overwrite this file.
 """
 
 _STACK_DEV_COMMANDS = {
@@ -274,30 +383,43 @@ _STACK_DEV_COMMANDS = {
 
 
 def _generate_codex_project_files(project_root: Path) -> None:
-    """Generate project-level AGENTS.md and .codex/pactkit.yaml."""
+    """Generate project-level AGENTS.md, .codex/AGENTS.local.md, and .codex/pactkit.yaml."""
     if project_root.resolve() == Path.home().resolve():
         return
 
     stack = _detect_stack(project_root)
     project_name = project_root.name
-
-    agents_md_path = project_root / "AGENTS.md"
-    if agents_md_path.exists():
-        print("  ⚠️ AGENTS.md already exists — skipping")
-    else:
-        dev_commands = _STACK_DEV_COMMANDS.get(stack, _STACK_DEV_COMMANDS["unknown"])
-        content = _CODEX_PROJECT_AGENTS_MD.format(
-            project_name=project_name,
-            dev_commands=dev_commands,
-        )
-        atomic_write(agents_md_path, content)
-
     codex_dir = project_root / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+
+    # STORY-010 R3: Migration — if root AGENTS.md has user content, migrate to local
+    agents_md_path = project_root / "AGENTS.md"
+    local_md_path = codex_dir / "AGENTS.local.md"
+
+    if agents_md_path.exists() and not local_md_path.exists():
+        existing = agents_md_path.read_text()
+        expected_first_line = f"# {project_name}"
+        first_line = existing.split("\n", 1)[0].strip()
+        if first_line != expected_first_line:
+            atomic_write(local_md_path, existing)
+
+    # STORY-010 R1: Always regenerate root AGENTS.md (PactKit-managed)
+    dev_commands = _STACK_DEV_COMMANDS.get(stack, _STACK_DEV_COMMANDS["unknown"])
+    content = _CODEX_PROJECT_AGENTS_MD.format(
+        project_name=project_name,
+        dev_commands=dev_commands,
+    )
+    atomic_write(agents_md_path, content)
+
+    # STORY-010 R2: Create AGENTS.local.md if missing (never overwrite)
+    if not local_md_path.exists():
+        atomic_write(local_md_path, _CODEX_LOCAL_AGENTS_MD)
+
+    # R6: pactkit.yaml — skip if exists, create if missing
     yaml_path = codex_dir / "pactkit.yaml"
     if yaml_path.exists():
         print("  ⚠️ .codex/pactkit.yaml already exists — skipping")
     else:
-        codex_dir.mkdir(parents=True, exist_ok=True)
         yaml_content = (
             f"stack: {stack}\n"
             f"version: 0.0.1\n"
@@ -308,7 +430,13 @@ def _generate_codex_project_files(project_root: Path) -> None:
 
 
 def _deploy_codex_prompts(prompts_dir, profile):
-    """Deploy command playbooks as Codex prompts."""
+    """Deploy command playbooks as Codex prompts with rule prerequisites (STORY-011 R2)."""
+    from pactkit_codex.prompts.rules import (
+        COMMAND_RULES_MAP,
+        CREDENTIAL_SAFETY_FILE,
+        RULES_FILES,
+    )
+
     ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
     ARGUMENT_HINTS = {
         "project-act": "STORY-NNN",
@@ -337,10 +465,40 @@ def _deploy_codex_prompts(prompts_dir, profile):
         content = _strip_model_references(content)
         content = content.replace("Agent(model=", "# Agent(model=")
 
+        # STORY-011 R2: Inject prerequisites header after frontmatter
+        content = _inject_rule_prerequisites(content, cmd_name, COMMAND_RULES_MAP, RULES_FILES, CREDENTIAL_SAFETY_FILE)
+
         atomic_write(prompts_dir / filename, content)
         deployed += 1
 
     return deployed
+
+
+def _inject_rule_prerequisites(content, cmd_name, rules_map, rules_files, credential_file):
+    """Inject a Prerequisites section after the frontmatter block."""
+    rule_keys = rules_map.get(cmd_name, ["core", "credential"])
+
+    rule_lines = []
+    for key in rule_keys:
+        if key == "credential":
+            rule_lines.append(f"- `~/.codex/rules/{credential_file}`")
+        elif key in rules_files:
+            rule_lines.append(f"- `~/.codex/rules/{rules_files[key]}`")
+
+    prereq = (
+        "\n## Prerequisites — Read These Rules First\n"
+        "Before executing this command, you MUST read the following rule files:\n"
+        + "\n".join(rule_lines)
+        + "\n"
+    )
+
+    # Insert after frontmatter (--- ... ---)
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            return "---" + parts[1] + "---" + prereq + parts[2]
+    # No frontmatter — prepend
+    return prereq + "\n" + content
 
 
 def _convert_codex_frontmatter(content, cmd_name, argument_commands, argument_hints):

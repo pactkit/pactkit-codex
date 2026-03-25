@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | ID | STORY-011 |
-| Status | Draft |
+| Status | Done |
 | Priority | P1 (Impact 4 / Effort 3) |
 | Release | 0.2.0 |
 | Depends | STORY-002 (AGENTS.md generator) |

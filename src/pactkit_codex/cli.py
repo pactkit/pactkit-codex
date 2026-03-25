@@ -137,12 +137,24 @@ def main():
         default=False,
         help="Non-interactive mode: auto-accept defaults (CI/CD environments)",
     )
-    # STORY-slim-023: Auto version sync
+    # STORY-012: Update command flags
     update_parser.add_argument(
         "--if-needed",
         action="store_true",
         default=False,
-        help="Only redeploy if installed version differs from pactkit_codex.yaml version",
+        help="Silent no-op if already current (for session hooks)",
+    )
+    update_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Bypass version check, always redeploy",
+    )
+    update_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Show what would be updated without making changes",
     )
 
     # pactkit upgrade (alias for init, migrates legacy scafpy files)
@@ -296,24 +308,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command in ("init", "update", "upgrade"):
-        # STORY-slim-023: --if-needed skips deploy when versions match
-        if args.command == "update" and getattr(args, "if_needed", False):
-            from pathlib import Path
-
-            from pactkit_codex.config import load_config
-
-            yaml_path = Path.cwd() / ".codex" / "pactkit.yaml"
-            if yaml_path.exists():
-                cfg = load_config(yaml_path)
-                yaml_version = cfg.get("version", "")
-                if yaml_version == __version__:
-                    print(f"PactKit {__version__} up-to-date — skipping redeploy")
-                    raise SystemExit(0)
-                print(f"PactKit version mismatch: {yaml_version} → {__version__}. Updating...")
-            else:
-                print("No pactkit.yaml found. Running first-time setup...")
-
+    if args.command in ("init", "upgrade"):
         from pactkit_codex.generators.deployer import deploy
 
         deploy(
@@ -323,6 +318,17 @@ def main():
             no_git=getattr(args, "no_git", False),
             no_external=getattr(args, "no_external", False),
             non_interactive=getattr(args, "non_interactive", False),
+        )
+
+    elif args.command == "update":
+        # STORY-012: Use incremental update with version tracking
+        from pactkit_codex.generators.deployer import update
+
+        update(
+            target=args.target,
+            force=getattr(args, "force", False),
+            if_needed=getattr(args, "if_needed", False),
+            dry_run=getattr(args, "dry_run", False),
         )
 
     elif args.command == "spec-lint":
@@ -492,7 +498,12 @@ def main():
     elif args.command == "doctor":
         from pathlib import Path
 
-        from pactkit_codex.doctor import check_config_drift, check_hld_module_count, check_orphaned_specs, check_stale_graphs
+        from pactkit_codex.doctor import (
+            check_config_drift,
+            check_hld_module_count,
+            check_orphaned_specs,
+            check_stale_graphs,
+        )
 
         root = Path.cwd()
         has_issues = False

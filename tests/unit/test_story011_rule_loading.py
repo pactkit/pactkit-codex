@@ -1,0 +1,153 @@
+"""Tests for STORY-011: Per-Command Rule Loading — Extract Rules from AGENTS.md."""
+
+
+import pytest
+
+from pactkit_codex.generators.deployer import (
+    _deploy_codex_agents_md,
+    _deploy_codex_prompts,
+)
+from pactkit_codex.profiles import get_profile
+from pactkit_codex.prompts.rules import (
+    COMMAND_RULES_MAP,
+    CREDENTIAL_SAFETY_FILE,
+    RULES_FILES,
+)
+
+
+@pytest.fixture
+def codex_root(tmp_path):
+    """Temporary codex root directory."""
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "prompts").mkdir()
+    return tmp_path
+
+
+@pytest.fixture
+def codex_profile():
+    return get_profile("codex")
+
+
+class TestAC1RulesDeployedAsFiles:
+    """AC1: Rules deployed as separate files under ~/.codex/rules/."""
+
+    def test_rule_files_created(self, codex_root, codex_profile):
+        from pactkit_codex.generators.deployer import _deploy_codex_rules
+
+        _deploy_codex_rules(codex_root / "rules", codex_profile)
+
+        rules_dir = codex_root / "rules"
+        rule_files = list(rules_dir.glob("*.md"))
+        assert len(rule_files) >= 7, f"Expected >=7 rule files, got {len(rule_files)}"
+
+    def test_rule_files_non_empty(self, codex_root, codex_profile):
+        from pactkit_codex.generators.deployer import _deploy_codex_rules
+
+        _deploy_codex_rules(codex_root / "rules", codex_profile)
+
+        for md_file in (codex_root / "rules").glob("*.md"):
+            content = md_file.read_text()
+            assert len(content) > 50, f"{md_file.name} is too short"
+
+    def test_no_claude_paths_in_rules(self, codex_root, codex_profile):
+        from pactkit_codex.generators.deployer import _deploy_codex_rules
+
+        _deploy_codex_rules(codex_root / "rules", codex_profile)
+
+        for md_file in (codex_root / "rules").glob("*.md"):
+            content = md_file.read_text()
+            assert "~/.claude/" not in content, f"{md_file.name} has ~/.claude/ path"
+
+    def test_no_anthropic_model_refs(self, codex_root, codex_profile):
+        from pactkit_codex.generators.deployer import _deploy_codex_rules
+
+        _deploy_codex_rules(codex_root / "rules", codex_profile)
+
+        for md_file in (codex_root / "rules").glob("*.md"):
+            content = md_file.read_text()
+            assert "claude-sonnet" not in content, f"{md_file.name} has model ref"
+            assert "claude-opus" not in content, f"{md_file.name} has model ref"
+
+
+class TestAC2CommandPromptsIncludePrerequisites:
+    """AC2: Deployed prompts include rule prerequisites section."""
+
+    def test_project_act_has_prerequisites(self, codex_root, codex_profile):
+        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+
+        act_file = codex_root / "prompts" / "project-act.md"
+        assert act_file.exists()
+        content = act_file.read_text()
+        assert "Prerequisites" in content
+        assert "01-core-protocol.md" in content
+        assert "08-architecture-principles.md" in content
+
+    def test_project_clarify_minimal_rules(self, codex_root, codex_profile):
+        """project-clarify only needs core + credential."""
+        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+
+        clarify = codex_root / "prompts" / "project-clarify.md"
+        assert clarify.exists()
+        content = clarify.read_text()
+        assert "Prerequisites" in content
+        assert "01-core-protocol.md" in content
+        assert CREDENTIAL_SAFETY_FILE in content
+        # Should NOT have architecture or workflow rules
+        assert "08-architecture-principles.md" not in content
+
+
+class TestAC3NoInlineRulesInAgentsMd:
+    """AC3: AGENTS.md no longer contains inline rule text."""
+
+    def test_no_inline_rule_markers(self, codex_root, codex_profile):
+        _deploy_codex_agents_md(codex_root, codex_profile)
+
+        content = (codex_root / "AGENTS.md").read_text()
+        # These are section headers from inlined rules — should be gone
+        assert "## Core Protocol" not in content
+        assert "## The Hierarchy of Truth" not in content
+        assert "## Strict TDD" not in content
+        assert "## Visual First" not in content
+
+    def test_has_rules_reference_table(self, codex_root, codex_profile):
+        _deploy_codex_agents_md(codex_root, codex_profile)
+
+        content = (codex_root / "AGENTS.md").read_text()
+        assert "Rules Reference" in content or "rules/" in content
+
+
+class TestAC4AgentsMdSizeBudget:
+    """AC4: AGENTS.md under 10KB (SHOULD be under 8KB)."""
+
+    def test_under_10kb(self, codex_root, codex_profile):
+        _deploy_codex_agents_md(codex_root, codex_profile)
+
+        size = len((codex_root / "AGENTS.md").read_bytes())
+        assert size < 10 * 1024, f"AGENTS.md is {size} bytes, exceeds 10KB"
+
+
+class TestAC5CredentialSafetyInEveryCommand:
+    """AC5: Every deployed prompt references 09-credential-safety.md."""
+
+    def test_all_prompts_have_credential_rule(self, codex_root, codex_profile):
+        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+
+        for md_file in (codex_root / "prompts").glob("*.md"):
+            content = md_file.read_text()
+            assert CREDENTIAL_SAFETY_FILE in content, (
+                f"{md_file.name} missing credential safety rule"
+            )
+
+
+class TestRulesMapConsistency:
+    """Verify COMMAND_RULES_MAP uses RULES_FILES keys only."""
+
+    def test_all_keys_valid(self):
+        valid_keys = set(RULES_FILES.keys()) | {"credential"}
+        for cmd, rules in COMMAND_RULES_MAP.items():
+            for rule in rules:
+                assert rule in valid_keys, f"{cmd} references unknown rule: {rule}"
+
+    def test_credential_in_every_command(self):
+        for cmd, rules in COMMAND_RULES_MAP.items():
+            assert "credential" in rules, f"{cmd} missing credential rule"

@@ -1,44 +1,70 @@
-# pactkit-codex
+# pactkit-codex (v0.1.0)
 
-> Standalone project: adapt PactKit PDCA workflow framework to OpenAI Codex CLI.
+> PactKit PDCA workflow framework adapted for OpenAI Codex CLI.
 
-## Project Goal
+## Project Status
 
-Build a deployment tool that takes PactKit's prompt templates, agent roles, command playbooks, skills scripts, and rules — and deploys them into Codex CLI's file structure (`AGENTS.md`, `.codex/skills/`, etc.).
+**v0.1.0 Feature Complete** — 16 stories/bugs done, 126 tests passing.
 
-## Key Constraint
+Core deployment chain works:
+```bash
+pactkit-codex init --format codex   # Deploy to ~/.codex/
+```
 
-Codex CLI has significantly fewer capabilities than Claude Code:
-- No multi-agent roles (single agent only)
-- No custom commands (`/project-plan` etc. don't exist natively)
-- No `@import` for modular rule loading
-- No `settings.json` equivalent for permissions
-- Uses `AGENTS.md` as the single project instruction file
-- OpenAI models only (GPT-4o, o3, o4-mini)
+## Architecture Decisions
 
-This means most PactKit features need **degraded fallback strategies** — encoding agents/commands/rules into AGENTS.md via prompt engineering.
+### Codex CLI Constraints (vs Claude Code)
 
-## Reference Documents
+| Capability | Claude Code | Codex CLI | Our Solution |
+|------------|-------------|-----------|--------------|
+| Multi-agent | Native | Single agent | Prompt-level role conventions |
+| Custom commands | `/project-*` | `/prompts:*` | Deploy to `~/.codex/prompts/` |
+| Rule loading | `@import` | None | Agentic routing (Prerequisites header) |
+| Config | `settings.json` | `config.toml` | Generate with PactKit defaults |
 
-All in `docs/reference/`:
-- `tool-integration-checklist.md` — 10-dimension integration checklist (from OpenCode lessons)
-- `codex-integration-preresearch.md` — Codex CLI research template (needs filling)
-- `pactkit-architecture.md` — PactKit component inventory and prompt content summary
-- `pactkit-profiles.py` — FormatProfile data structure (source of truth for env paths)
-- `pactkit-prompts-inventory.md` — All prompt modules with content summaries
+### Dual-File Architecture (STORY-010)
 
-## Source PactKit Repo
+```
+./AGENTS.md                    # PactKit-managed (always regenerated)
+.codex/
+├── pactkit.yaml               # Project config
+└── AGENTS.local.md            # User-owned (never overwritten)
+```
 
-The full PactKit codebase is at `~/workspaces/pactkit/`. Key paths:
-- `src/pactkit/prompts/` — all prompt template source code
-- `src/pactkit/skills/` — standalone skill scripts (board.py, scaffold.py, etc.)
-- `src/pactkit/profiles.py` — FormatProfile definitions
-- `src/pactkit/generators/deployer.py` — deployment orchestrator (reference only)
-- `src/pactkit/config.py` — VALID_AGENTS/COMMANDS/SKILLS/RULES sets
+### Per-Command Rule Loading (STORY-011)
 
-## Development Workflow
+Rules extracted to `~/.codex/rules/` (9 files). Each prompt declares its prerequisites:
+```markdown
+## Prerequisites — Read These Rules First
+- `~/.codex/rules/01-core-protocol.md`
+- `~/.codex/rules/09-credential-safety.md`
+```
 
-1. **Phase 1: Research** — Fill in `codex-integration-preresearch.md` by reading Codex CLI docs/repo
-2. **Phase 2: Design** — Decide degraded fallback strategy for each capability
-3. **Phase 3: Build** — Generate AGENTS.md + skills + config for Codex CLI
-4. **Phase 4: Test** — Verify in real Codex CLI session
+`COMMAND_RULES_MAP` in `rules.py` is the single source of truth.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/pactkit_codex/generators/deployer.py` | Main deployment orchestrator |
+| `src/pactkit_codex/prompts/rules.py` | Rule modules + COMMAND_RULES_MAP |
+| `src/pactkit_codex/profiles.py` | FormatProfile (paths, config) |
+| `tests/unit/` | 126 unit tests |
+| `tests/e2e/` | E2E deployment verification |
+
+## Deploy Output Structure
+
+```
+~/.codex/
+├── AGENTS.md              # Global constitution (~6KB, roles + routing + rule index)
+├── config.toml            # Model, sandbox, MCP config
+├── rules/                 # 9 rule files (on-demand loading)
+├── prompts/               # 10 command prompts (project-act, project-plan, etc.)
+└── skills/                # 10 skills (visualize, board, scaffold, etc.)
+```
+
+## Future Work
+
+- [ ] Migrate commands to Codex Skills (prompts deprecated upstream)
+- [ ] Add `pactkit-codex update` for incremental upgrades
+- [ ] Test with actual Codex CLI TUI session

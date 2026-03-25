@@ -53,10 +53,10 @@ multilang = [
 ]
 
 [project.urls]
-Homepage = "https://pactkit.dev"
-Repository = "https://github.com/pactkit/pactkit"
-Documentation = "https://pactkit.dev/docs"
-Issues = "https://github.com/pactkit/pactkit/issues"
+Homepage = "https://github.com/anthropics/pactkit-codex"
+Repository = "https://github.com/anthropics/pactkit-codex"
+Documentation = "https://github.com/anthropics/pactkit-codex#readme"
+Issues = "https://github.com/anthropics/pactkit-codex/issues"
 
 [project.scripts]
 pactkit-codex = "pactkit_codex.cli:main"
@@ -65,7 +65,7 @@ pactkit-codex = "pactkit_codex.cli:main"
 packages = ["src/pactkit_codex"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/e2e"]
 pythonpath = ["src"]
 markers = [
     "e2e: End-to-end CLI tests (subprocess-based)",

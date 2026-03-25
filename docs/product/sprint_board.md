@@ -2,28 +2,38 @@
 
 ## 📋 Backlog
 
-### [STORY-010] Project-level Dual-File Layered Architecture for Codex
-> Spec: docs/specs/STORY-010.md
-
-- [ ] 1. Remove no-overwrite guard for root AGENTS.md (make it PactKit-managed)
-- [ ] 2. Add _generate_codex_local_md_if_missing() for .codex/AGENTS.local.md
-- [ ] 3. Add migration heuristic for user-modified AGENTS.md
-- [ ] 4. Update AGENTS.md template to reference AGENTS.local.md
-- [ ] 5. Unit tests for AC1-AC6
-
-### [STORY-011] Per-Command Rule Loading — Extract Rules from AGENTS.md
-> Spec: docs/specs/STORY-011.md
-
-- [ ] 1. Add `_deploy_codex_rules()` to deploy rule files to `~/.codex/rules/`
-- [ ] 2. Inject Prerequisites header into each command prompt via `COMMAND_RULES_MAP`
-- [ ] 3. Replace inline rules in AGENTS.md with index table
-- [ ] 4. Verify credential safety in all commands (SEC-1)
-- [ ] 5. Unit tests for AC1-AC6
 
 ## 🔄 In Progress
 
 
 ## ✅ Done
+
+### [STORY-012] Incremental Update Command (`pactkit-codex update`)
+> Spec: docs/specs/STORY-012.md
+
+- [x] 1. Add version marker file (`~/.codex/.pactkit-version`) on init
+- [x] 2. Implement `_read_deployed_version()` and version comparison
+- [x] 3. Add `update` subcommand to CLI with --force, --if-needed, --dry-run
+- [x] 4. Preserve user files (existing config.toml merge + AGENTS.local.md no-overwrite)
+- [x] 5. Unit tests for AC1-AC7 (12 tests)
+
+### [STORY-010] Project-level Dual-File Layered Architecture for Codex
+> Spec: docs/specs/STORY-010.md
+
+- [x] 1. Remove no-overwrite guard for root AGENTS.md (make it PactKit-managed)
+- [x] 2. Add _generate_codex_local_md_if_missing() for .codex/AGENTS.local.md
+- [x] 3. Add migration heuristic for user-modified AGENTS.md
+- [x] 4. Update AGENTS.md template to reference AGENTS.local.md
+- [x] 5. Unit tests for AC1-AC6
+
+### [STORY-011] Per-Command Rule Loading — Extract Rules from AGENTS.md
+> Spec: docs/specs/STORY-011.md
+
+- [x] 1. Add `_deploy_codex_rules()` to deploy rule files to `~/.codex/rules/`
+- [x] 2. Inject Prerequisites header into each command prompt via `COMMAND_RULES_MAP`
+- [x] 3. Replace inline rules in AGENTS.md with index table
+- [x] 4. Verify credential safety in all commands (SEC-1)
+- [x] 5. Unit tests for AC1-AC6
 
 ### [BUG-005] Hardcoded `.claude` Path References Throughout Codebase
 > Spec: docs/specs/BUG-005.md
