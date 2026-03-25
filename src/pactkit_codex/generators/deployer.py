@@ -151,8 +151,9 @@ def _deploy_codex(target=None):
 
     skills_dir = codex_root / "skills"
     prompts_dir = codex_root / "prompts"
+    playbooks_dir = codex_root / "playbooks"
 
-    for d in [codex_root, skills_dir, prompts_dir]:
+    for d in [codex_root, skills_dir, prompts_dir, playbooks_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
     from pactkit_codex.config import find_pactkit_yaml
@@ -177,6 +178,8 @@ def _deploy_codex(target=None):
 
     _deploy_codex_agents_md(codex_root, codex_profile)
 
+    # Deploy full playbooks (detailed workflows) and thin prompts (wrappers)
+    _deploy_codex_playbooks(playbooks_dir, codex_profile)
     n_prompts = _deploy_codex_prompts(prompts_dir, codex_profile)
 
     _generate_codex_config_toml(codex_root)
@@ -429,30 +432,26 @@ def _generate_codex_project_files(project_root: Path) -> None:
         atomic_write(yaml_path, yaml_content)
 
 
-def _deploy_codex_prompts(prompts_dir, profile):
-    """Deploy command playbooks as Codex prompts with rule prerequisites (STORY-011 R2)."""
+def _deploy_codex_playbooks(playbooks_dir, profile):
+    """Deploy full command playbooks to ~/.codex/playbooks/ (detailed workflows)."""
     from pactkit_codex.prompts.rules import (
         COMMAND_RULES_MAP,
         CREDENTIAL_SAFETY_FILE,
         RULES_FILES,
     )
 
-    ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
-    ARGUMENT_HINTS = {
-        "project-act": "STORY-NNN",
-        "project-check": "STORY-NNN",
-        "project-done": "STORY-NNN",
-        "project-hotfix": "description of the fix",
-        "project-clarify": "STORY-NNN or question",
-    }
-
-    deployed = 0
     for filename, raw_content in prompts.COMMANDS_CONTENT.items():
         if filename in CODEX_EXCLUDED_PROMPTS:
             continue
         cmd_name = filename.removesuffix(".md")
 
-        content = _convert_codex_frontmatter(raw_content, cmd_name, ARGUMENT_COMMANDS, ARGUMENT_HINTS)
+        # Strip frontmatter for playbooks (not needed, prompts handle it)
+        content = raw_content
+        if content.startswith("---"):
+            parts = content.split("---", 2)
+            if len(parts) >= 3:
+                content = parts[2].lstrip("\n")
+
         content = _render_prompt(content, profile)
 
         content = content.replace("~/.claude/skills/", "~/.codex/skills/")
@@ -465,17 +464,14 @@ def _deploy_codex_prompts(prompts_dir, profile):
         content = _strip_model_references(content)
         content = content.replace("Agent(model=", "# Agent(model=")
 
-        # STORY-011 R2: Inject prerequisites header after frontmatter
-        content = _inject_rule_prerequisites(content, cmd_name, COMMAND_RULES_MAP, RULES_FILES, CREDENTIAL_SAFETY_FILE)
+        # Inject prerequisites at the top of playbook
+        content = _inject_playbook_prerequisites(content, cmd_name, COMMAND_RULES_MAP, RULES_FILES, CREDENTIAL_SAFETY_FILE)
 
-        atomic_write(prompts_dir / filename, content)
-        deployed += 1
-
-    return deployed
+        atomic_write(playbooks_dir / filename, content)
 
 
-def _inject_rule_prerequisites(content, cmd_name, rules_map, rules_files, credential_file):
-    """Inject a Prerequisites section after the frontmatter block."""
+def _inject_playbook_prerequisites(content, cmd_name, rules_map, rules_files, credential_file):
+    """Inject Prerequisites section at top of playbook."""
     rule_keys = rules_map.get(cmd_name, ["core", "credential"])
 
     rule_lines = []
@@ -486,44 +482,60 @@ def _inject_rule_prerequisites(content, cmd_name, rules_map, rules_files, creden
             rule_lines.append(f"- `~/.codex/rules/{rules_files[key]}`")
 
     prereq = (
-        "\n## Prerequisites — Read These Rules First\n"
+        "## Prerequisites — Read These Rules First\n"
         "Before executing this command, you MUST read the following rule files:\n"
         + "\n".join(rule_lines)
-        + "\n"
+        + "\n\n"
     )
 
-    # Insert after frontmatter (--- ... ---)
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            return "---" + parts[1] + "---" + prereq + parts[2]
-    # No frontmatter — prepend
-    return prereq + "\n" + content
+    return prereq + content
 
 
-def _convert_codex_frontmatter(content, cmd_name, argument_commands, argument_hints):
-    """Convert Claude Code frontmatter to Codex format."""
-    if not content.startswith("---"):
-        return content
+# Command descriptions for thin prompts
+_COMMAND_DESCRIPTIONS = {
+    "project-plan": "Analyze requirements and create Spec",
+    "project-act": "Implement code per Spec (TDD)",
+    "project-check": "QA verification and testing",
+    "project-done": "Code cleanup, board update, Git commit",
+    "project-clarify": "Clarify requirements or ask questions",
+    "project-init": "Initialize project governance",
+    "project-release": "Version release: snapshot, archive, Git tag",
+    "project-pr": "Push branch and create pull request",
+    "project-hotfix": "Quick fix bypass (skip TDD)",
+    "project-design": "Greenfield product design and PRD generation",
+}
 
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return content
+_ARGUMENT_HINTS = {
+    "project-act": "STORY-NNN",
+    "project-check": "STORY-NNN",
+    "project-done": "STORY-NNN",
+    "project-hotfix": "description of the fix",
+    "project-clarify": "STORY-NNN or question",
+}
 
-    fm_lines = parts[1].strip().split("\n")
-    new_lines = []
 
-    for line in fm_lines:
-        stripped = line.strip()
-        if stripped.startswith("allowed-tools:"):
+def _deploy_codex_prompts(prompts_dir, profile):
+    """Deploy thin wrapper prompts that point to playbooks."""
+    deployed = 0
+    for filename, _raw_content in prompts.COMMANDS_CONTENT.items():
+        if filename in CODEX_EXCLUDED_PROMPTS:
             continue
-        new_lines.append(line)
+        cmd_name = filename.removesuffix(".md")
+        description = _COMMAND_DESCRIPTIONS.get(cmd_name, cmd_name)
 
-    if cmd_name in argument_commands:
-        hint = argument_hints.get(cmd_name, "argument")
-        new_lines.append(f'argument-hint: "{hint}"')
+        # Build frontmatter
+        fm_lines = [f'description: "{description}"']
+        if cmd_name in _ARGUMENT_HINTS:
+            fm_lines.append(f'argument-hint: "{_ARGUMENT_HINTS[cmd_name]}"')
 
-    return "---\n" + "\n".join(new_lines) + "\n---" + parts[2]
+        # Thin wrapper: just frontmatter + pointer to playbook
+        content = "---\n" + "\n".join(fm_lines) + "\n---\n"
+        content += f"Read and follow the workflow in `~/.codex/playbooks/{filename}`\n"
+
+        atomic_write(prompts_dir / filename, content)
+        deployed += 1
+
+    return deployed
 
 
 def _strip_model_references(content):

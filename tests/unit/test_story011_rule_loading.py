@@ -69,13 +69,17 @@ class TestAC1RulesDeployedAsFiles:
             assert "claude-opus" not in content, f"{md_file.name} has model ref"
 
 
-class TestAC2CommandPromptsIncludePrerequisites:
-    """AC2: Deployed prompts include rule prerequisites section."""
+class TestAC2PlaybooksIncludePrerequisites:
+    """AC2: Deployed playbooks include rule prerequisites section."""
 
     def test_project_act_has_prerequisites(self, codex_root, codex_profile):
-        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+        from pactkit_codex.generators.deployer import _deploy_codex_playbooks
 
-        act_file = codex_root / "prompts" / "project-act.md"
+        playbooks_dir = codex_root / "playbooks"
+        playbooks_dir.mkdir(parents=True, exist_ok=True)
+        _deploy_codex_playbooks(playbooks_dir, codex_profile)
+
+        act_file = playbooks_dir / "project-act.md"
         assert act_file.exists()
         content = act_file.read_text()
         assert "Prerequisites" in content
@@ -84,9 +88,13 @@ class TestAC2CommandPromptsIncludePrerequisites:
 
     def test_project_clarify_minimal_rules(self, codex_root, codex_profile):
         """project-clarify only needs core + credential."""
-        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+        from pactkit_codex.generators.deployer import _deploy_codex_playbooks
 
-        clarify = codex_root / "prompts" / "project-clarify.md"
+        playbooks_dir = codex_root / "playbooks"
+        playbooks_dir.mkdir(parents=True, exist_ok=True)
+        _deploy_codex_playbooks(playbooks_dir, codex_profile)
+
+        clarify = playbooks_dir / "project-clarify.md"
         assert clarify.exists()
         content = clarify.read_text()
         assert "Prerequisites" in content
@@ -127,12 +135,16 @@ class TestAC4AgentsMdSizeBudget:
 
 
 class TestAC5CredentialSafetyInEveryCommand:
-    """AC5: Every deployed prompt references 09-credential-safety.md."""
+    """AC5: Every deployed playbook references 09-credential-safety.md."""
 
-    def test_all_prompts_have_credential_rule(self, codex_root, codex_profile):
-        _deploy_codex_prompts(codex_root / "prompts", codex_profile)
+    def test_all_playbooks_have_credential_rule(self, codex_root, codex_profile):
+        from pactkit_codex.generators.deployer import _deploy_codex_playbooks
 
-        for md_file in (codex_root / "prompts").glob("*.md"):
+        playbooks_dir = codex_root / "playbooks"
+        playbooks_dir.mkdir(parents=True, exist_ok=True)
+        _deploy_codex_playbooks(playbooks_dir, codex_profile)
+
+        for md_file in playbooks_dir.glob("*.md"):
             content = md_file.read_text()
             assert CREDENTIAL_SAFETY_FILE in content, (
                 f"{md_file.name} missing credential safety rule"
