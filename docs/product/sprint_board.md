@@ -4,6 +4,11 @@
 
 
 
+## 🔄 In Progress
+
+
+## ✅ Done
+
 ### [STORY-001] Codex FormatProfile + Deploy Orchestrator
 > Spec: docs/specs/STORY-001.md
 
@@ -43,15 +48,10 @@
 ### [STORY-007] Update Playbook Text Paths for Codex
 > Spec: docs/specs/STORY-007.md
 
-- [ ] 1. Replace hardcoded paths with template vars 2. Add Codex detection to /project-init 3. Grep audit all prompt files 4. Remove Anthropic model refs
+- [x] 1. Replace hardcoded paths with template vars 2. Add Codex detection to /project-init 3. Grep audit all prompt files 4. Remove Anthropic model refs
 
 
 ### [STORY-008] E2E Verification in Real Codex CLI
 > Spec: docs/specs/STORY-008.md
 
-- [ ] 1. Verify all artifacts created 2. Test slash commands in TUI 3. Test skill execution 4. Run mini PDCA cycle 5. Grep for leaked refs
-
-## 🔄 In Progress
-
-
-## ✅ Done
+- [x] 1. Verify all artifacts created 2. Test slash commands in TUI 3. Test skill execution 4. Run mini PDCA cycle 5. Grep for leaked refs

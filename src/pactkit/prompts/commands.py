@@ -492,7 +492,7 @@ Run `pactkit coverage-gate <changed-files>` to verify coverage on changed source
 0.  **Enterprise Check**: If `enterprise.no_git: true` in `pactkit.yaml`, skip ALL git operations in this phase. Print: "ℹ️ Git operations disabled (enterprise.no_git)". Skip to the Session Context Update phase.
 0.5.  **Deployment Verification (MANDATORY)**: Before committing, verify code changes are reflected in the deployed environment:
     - Run `pactkit update` to redeploy all prompts, agents, commands, skills, and rules.
-    - Smoke-check: for each AC that references prompt/deployed file content, `grep` 1-2 key assertions on deployed files (e.g., `~/.claude/commands/*.md`).
+    - Smoke-check: for each AC that references prompt/deployed file content, `grep` 1-2 key assertions on deployed files (e.g., `{GLOBAL_CONFIG_DIR}/commands/*.md` or `{GLOBAL_CONFIG_DIR}/prompts/*.md`).
     - Report: `Deploy verification: PASS ({N} assertions checked)` or `FAIL (details)`.
     - If FAIL, fix the deployment issue before committing.
 1.  **Format**: `feat(scope): <title from spec>`
@@ -564,22 +564,23 @@ allowed-tools: [Read, Write, Edit, Bash, Glob]
 ## 🎬 Phase 1: Environment & Config
 1.  **Check CLI Availability**: Run `pactkit version` to check if CLI is available.
     - **If available**: Proceed to Step 2.
-    - **If NOT available** (command fails): Print warning: "⚠️ pactkit CLI not found. Install with: `pip install pactkit`". Then manually create a minimal `pactkit.yaml` (in `.claude/` or `.opencode/` depending on environment) with `stack: <detected>`, `version: 0.0.1`, `root: .`, `developer: ""` and skip to Step 4.
+    - **If NOT available** (command fails): Print warning: "⚠️ pactkit CLI not found. Install with: `pip install pactkit`". Then manually create a minimal `pactkit.yaml` (in `{PROJECT_CONFIG_DIR}` depending on environment) with `stack: <detected>`, `version: 0.0.1`, `root: .`, `developer: ""` and skip to Step 4.
 2.  **Environment Detection** (MUST run BEFORE any `pactkit init/update` call — BUG-slim-001):
-    - Check if `~/.config/opencode/AGENTS.md` exists OR `which opencode` succeeds.
-    - Set `DETECTED_ENV`:
-      - **OpenCode detected** → `DETECTED_ENV=opencode`
-      - **Otherwise** → `DETECTED_ENV=classic`
+    - Check if `{GLOBAL_CONFIG_DIR}/config.toml` exists OR `which codex` succeeds → `DETECTED_ENV=codex`
+    - Check if `which opencode` succeeds → `DETECTED_ENV=opencode`
+    - **Otherwise** → `DETECTED_ENV=classic`
     - This variable determines the `--format` flag for all subsequent `pactkit` CLI calls.
-3.  **Generate Config**: Check if `pactkit.yaml` exists (check `.claude/pactkit.yaml` then `.opencode/pactkit.yaml`).
+3.  **Generate Config**: Check if `pactkit.yaml` exists (check `.claude/pactkit.yaml`, `.opencode/pactkit.yaml`, or `.codex/pactkit.yaml`).
     - **If missing**:
+      - If `DETECTED_ENV=codex`: Run `pactkit init --format codex`
       - If `DETECTED_ENV=opencode`: Run `pactkit init --format opencode`
       - If `DETECTED_ENV=classic`: Run `pactkit init`
     - **If exists**:
+      - If `DETECTED_ENV=codex`: Run `pactkit update --format codex`
       - If `DETECTED_ENV=opencode`: Run `pactkit update --format opencode`
       - If `DETECTED_ENV=classic`: Run `pactkit update`
 4.  **Stack Detection** (config-first, then file-based fallback):
-    - **Config-first**: If `pactkit.yaml` exists (in `.claude/` or `.opencode/`) and has a `stack` value set (including `auto`), use that value and skip file-based detection.
+    - **Config-first**: If `pactkit.yaml` exists (in `.claude/`, `.opencode/`, or `.codex/`) and has a `stack` value set (including `auto`), use that value and skip file-based detection.
     - **File-based detection** (only if no config value):
       - Valid values: `python`, `node`, `go`, `java`, `auto`
       - If `pyproject.toml` or `requirements.txt` or `setup.py` exists → `stack: python`
@@ -593,24 +594,31 @@ allowed-tools: [Read, Write, Edit, Bash, Glob]
       - Use the directory name as the project name. Fill test_runner and lint_command from the detected language stack in LANG_PROFILES.
       - Include: venv instructions (if detected), dev commands, `@./docs/product/context.md` reference for cross-session context.
     - **If `DETECTED_ENV=opencode`**: Do NOT create `.claude/` or `CLAUDE.md`. Proceed to Step 6.
-6.  **OpenCode Project Setup** (only if `DETECTED_ENV=opencode`):
-    - Ensure `pactkit.yaml` exists in `.opencode/` (already handled by Step 3).
-    - Generate `./opencode.json` if missing:
-      ```json
-      {
-        "$schema": "https://opencode.ai/config.json",
-        "instructions": ["AGENTS.md", "docs/product/context.md"],
-        "permission": { "edit": "allow", "bash": { "*": "allow", "rm -rf /*": "deny" } },
-        "mcp": { "context7": { "type": "remote", "url": "https://mcp.context7.com/mcp" } }
-      }
-      ```
-    - Generate `./AGENTS.md` if missing (project instructions, can reference global AGENTS.md or be standalone).
-    - Print: "ℹ️ OpenCode environment detected. Generated opencode.json, AGENTS.md, and pactkit.yaml."
+    - **If `DETECTED_ENV=codex`**: Do NOT create `.claude/` or `CLAUDE.md`. Proceed to Step 6.
+6.  **Environment-Specific Project Setup**:
+    - **If `DETECTED_ENV=opencode`**:
+      - Ensure `pactkit.yaml` exists in `.opencode/` (already handled by Step 3).
+      - Generate `./opencode.json` if missing:
+        ```json
+        {
+          "$schema": "https://opencode.ai/config.json",
+          "instructions": ["AGENTS.md", "docs/product/context.md"],
+          "permission": { "edit": "allow", "bash": { "*": "allow", "rm -rf /*": "deny" } },
+          "mcp": { "context7": { "type": "remote", "url": "https://mcp.context7.com/mcp" } }
+        }
+        ```
+      - Generate `./AGENTS.md` if missing (project instructions, can reference global AGENTS.md or be standalone).
+      - Print: "ℹ️ OpenCode environment detected. Generated opencode.json, AGENTS.md, and pactkit.yaml."
+    - **If `DETECTED_ENV=codex`**:
+      - Ensure `pactkit.yaml` exists in `.codex/` (already handled by Step 3).
+      - Generate `./AGENTS.md` if missing (project instructions for Codex CLI).
+      - Print: "ℹ️ Codex environment detected. Generated AGENTS.md and {PACTKIT_YAML}."
 
 ## 🎬 Phase 2: Architecture Governance
 1.  **Scaffold**: Determine the skills path based on `DETECTED_ENV`:
-    - If `DETECTED_ENV=opencode`: `SKILLS_PATH=~/.config/opencode/skills`
-    - If `DETECTED_ENV=classic`: `SKILLS_PATH=~/.claude/skills`
+    - If `DETECTED_ENV=codex`: `SKILLS_PATH={SKILLS_ROOT}`
+    - If `DETECTED_ENV=opencode`: `SKILLS_PATH={SKILLS_ROOT}`
+    - If `DETECTED_ENV=classic`: `SKILLS_PATH={SKILLS_ROOT}`
     Run `python3 $SKILLS_PATH/pactkit-visualize/scripts/visualize.py init_arch`.
     - *Result*: Folders created. Placeholders (`system_design.mmd`) created.
 2.  **Ensure**: `mkdir -p docs/product docs/specs docs/test_cases tests/e2e/api tests/e2e/browser tests/unit`.
