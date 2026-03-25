@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from pactkit.schemas import (
+from pactkit_codex.schemas import (
     CONTEXT_HEADER,
     CONTEXT_SECTIONS,
     LESSONS_TABLE_HEADER,

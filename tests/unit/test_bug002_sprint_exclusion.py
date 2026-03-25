@@ -5,7 +5,7 @@ import pytest
 
 @pytest.fixture()
 def codex_deploy(tmp_path):
-    from pactkit.generators.deployer import _deploy_codex
+    from pactkit_codex.generators.deployer import _deploy_codex
 
     _deploy_codex(target=str(tmp_path))
     return tmp_path
@@ -34,7 +34,7 @@ class TestExclusionConstant:
     """R4: CODEX_EXCLUDED_PROMPTS is a module-level constant."""
 
     def test_constant_exists(self):
-        from pactkit.generators.deployer import CODEX_EXCLUDED_PROMPTS
+        from pactkit_codex.generators.deployer import CODEX_EXCLUDED_PROMPTS
 
         assert isinstance(CODEX_EXCLUDED_PROMPTS, (set, frozenset))
         assert "project-sprint.md" in CODEX_EXCLUDED_PROMPTS

@@ -1,4 +1,4 @@
-from pactkit import __version__
+from pactkit_codex import __version__
 
 RULES_MODULES = {
     "core": """# Core Protocol

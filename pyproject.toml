@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pactkit"
-version = "2.4.0"
-description = "Spec-driven agentic DevOps toolkit for AI coding assistants"
+name = "pactkit-codex"
+version = "0.1.0"
+description = "PactKit PDCA workflow framework adapted for OpenAI Codex CLI"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -19,10 +19,9 @@ authors = [
 keywords = [
     "ai",
     "agent",
-    "claude",
-    "anthropic",
-    "claude-code",
-    "multi-agent",
+    "codex",
+    "openai",
+    "codex-cli",
     "code-assistant",
     "code-quality",
     "developer-tools",
@@ -60,10 +59,10 @@ Documentation = "https://pactkit.dev/docs"
 Issues = "https://github.com/pactkit/pactkit/issues"
 
 [project.scripts]
-pactkit = "pactkit.cli:main"
+pactkit-codex = "pactkit_codex.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pactkit"]
+packages = ["src/pactkit_codex"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -81,14 +80,14 @@ line-length = 120
 select = ["E", "F", "I", "W"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/pactkit/prompts/__init__.py" = ["F401"]
-"src/pactkit/prompts/agents.py" = ["E501"]
-"src/pactkit/prompts/commands.py" = ["E501"]
-"src/pactkit/prompts/references.py" = ["E501"]
-"src/pactkit/prompts/rules.py" = ["E501"]
-"src/pactkit/prompts/skills.py" = ["E501"]
-"src/pactkit/prompts/workflows.py" = ["E501"]
-"src/pactkit/generators/deployer.py" = ["E402"]
-"src/pactkit/skills/*.py" = ["E501", "E701", "E702", "E722", "E731", "I001"]
-"src/pactkit/scripts.py" = ["E501"]
+"src/pactkit_codex/prompts/__init__.py" = ["F401"]
+"src/pactkit_codex/prompts/agents.py" = ["E501"]
+"src/pactkit_codex/prompts/commands.py" = ["E501"]
+"src/pactkit_codex/prompts/references.py" = ["E501"]
+"src/pactkit_codex/prompts/rules.py" = ["E501"]
+"src/pactkit_codex/prompts/skills.py" = ["E501"]
+"src/pactkit_codex/prompts/workflows.py" = ["E501"]
+"src/pactkit_codex/generators/deployer.py" = ["E402"]
+"src/pactkit_codex/skills/*.py" = ["E501", "E701", "E702", "E722", "E731", "I001"]
+"src/pactkit_codex/scripts.py" = ["E501"]
 "tests/**/*.py" = ["E402", "E501", "E741", "F841", "I001"]

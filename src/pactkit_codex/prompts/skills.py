@@ -1,7 +1,7 @@
-from pactkit.skills import load_script
+from pactkit_codex.skills import load_script
 
 # ==============================================================================
-# SKILL SOURCE CODE (loaded from pactkit/skills/)
+# SKILL SOURCE CODE (loaded from pactkit_codex/skills/)
 # ==============================================================================
 
 VISUALIZE_SOURCE = load_script("visualize.py")

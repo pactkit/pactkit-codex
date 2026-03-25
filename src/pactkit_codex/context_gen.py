@@ -13,7 +13,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from pactkit.schemas import (
+from pactkit_codex.schemas import (
     BOARD_SECTION_BACKLOG,
     BOARD_SECTION_DONE,
     BOARD_SECTION_IN_PROGRESS,

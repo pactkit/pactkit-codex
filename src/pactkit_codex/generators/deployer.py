@@ -12,19 +12,19 @@ project_root = current_dir.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from pactkit import __version__, prompts
-from pactkit.config import (
+from pactkit_codex import __version__, prompts
+from pactkit_codex.config import (
     VALID_SKILLS,
     auto_merge_config_file,
     load_config,
 )
-from pactkit.profiles import (
+from pactkit_codex.profiles import (
     VALID_FORMATS,
     FormatProfile,
     get_profile,
 )
-from pactkit.skills import load_script
-from pactkit.utils import atomic_write
+from pactkit_codex.skills import load_script
+from pactkit_codex.utils import atomic_write
 
 # Commands excluded from Codex deployment (require multi-agent capabilities)
 CODEX_EXCLUDED_PROMPTS = frozenset({"project-sprint.md"})
@@ -38,7 +38,7 @@ def _render_prompt(template: str, profile: FormatProfile) -> str:
     skills_root = profile.skills_dir
     _backtick = "```"
 
-    from pactkit.schemas import CONTEXT_SECTIONS_TEXT, LESSONS_ROW_FORMAT
+    from pactkit_codex.schemas import CONTEXT_SECTIONS_TEXT, LESSONS_ROW_FORMAT
 
     var_map = {
         "SKILLS_ROOT": skills_root,
@@ -92,7 +92,7 @@ def _deploy_codex(target=None):
     for d in [codex_root, skills_dir, prompts_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    from pactkit.config import find_pactkit_yaml
+    from pactkit_codex.config import find_pactkit_yaml
 
     project_yaml = find_pactkit_yaml()
     if project_yaml is not None:

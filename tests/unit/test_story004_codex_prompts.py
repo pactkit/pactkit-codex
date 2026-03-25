@@ -35,8 +35,8 @@ class TestCodexPrompts:
 
     def _deploy(self, prompts_dir):
         """Helper to deploy prompts."""
-        from pactkit.generators.deployer import _deploy_codex_prompts
-        from pactkit.profiles import get_profile
+        from pactkit_codex.generators.deployer import _deploy_codex_prompts
+        from pactkit_codex.profiles import get_profile
 
         profile = get_profile("codex")
         return _deploy_codex_prompts(prompts_dir, profile)

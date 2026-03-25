@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from pactkit.schemas import BOARD_SECTION_DONE
+from pactkit_codex.schemas import BOARD_SECTION_DONE
 
 _ITEM_ID_RE = re.compile(r"((?:STORY|BUG|HOTFIX)(?:-[\w]+)?-\d+)")
 _TBD_RE = re.compile(r"\|\s*Release\s*\|\s*TBD\s*\|")

@@ -9,12 +9,12 @@ Usage:
 
 import argparse
 
-from pactkit import __version__
+from pactkit_codex import __version__
 
 
 def _schema_command(args) -> None:
     """Print document structure rules for the given type (STORY-slim-007 R7)."""
-    from pactkit.schemas import SCHEMA_REGISTRY
+    from pactkit_codex.schemas import SCHEMA_REGISTRY
 
     show_all = getattr(args, "all_types", False) or args.type == "--all"
     doc_type = None if show_all else args.type
@@ -142,7 +142,7 @@ def main():
         "--if-needed",
         action="store_true",
         default=False,
-        help="Only redeploy if installed version differs from pactkit.yaml version",
+        help="Only redeploy if installed version differs from pactkit_codex.yaml version",
     )
 
     # pactkit upgrade (alias for init, migrates legacy scafpy files)
@@ -301,7 +301,7 @@ def main():
         if args.command == "update" and getattr(args, "if_needed", False):
             from pathlib import Path
 
-            from pactkit.config import load_config
+            from pactkit_codex.config import load_config
 
             yaml_path = Path.cwd() / ".codex" / "pactkit.yaml"
             if yaml_path.exists():
@@ -314,7 +314,7 @@ def main():
             else:
                 print("No pactkit.yaml found. Running first-time setup...")
 
-        from pactkit.generators.deployer import deploy
+        from pactkit_codex.generators.deployer import deploy
 
         deploy(
             target=args.target,
@@ -326,7 +326,7 @@ def main():
         )
 
     elif args.command == "spec-lint":
-        from pactkit.skills.spec_linter import main as spec_lint_main
+        from pactkit_codex.skills.spec_linter import main as spec_lint_main
 
         argv = []
         if args.all:
@@ -344,7 +344,7 @@ def main():
     elif args.command == "guard":
         from pathlib import Path
 
-        from pactkit.guards import check_init_markers, check_version_mismatch
+        from pactkit_codex.guards import check_init_markers, check_version_mismatch
 
         project_root = Path.cwd()
         ok, missing = check_init_markers(project_root)
@@ -363,8 +363,8 @@ def main():
     elif args.command == "next-id":
         from pathlib import Path
 
-        from pactkit.config import load_config
-        from pactkit.id_generator import next_story_id
+        from pactkit_codex.config import load_config
+        from pactkit_codex.id_generator import next_story_id
 
         cfg = load_config()
         specs_dir = Path.cwd() / "docs" / "specs"
@@ -373,7 +373,7 @@ def main():
     elif args.command == "clean":
         from pathlib import Path
 
-        from pactkit.cleaners import clean_artifacts
+        from pactkit_codex.cleaners import clean_artifacts
 
         removed = clean_artifacts(Path.cwd(), stack=args.stack, dry_run=args.dry_run)
         if removed:
@@ -387,7 +387,7 @@ def main():
     elif args.command == "regression":
         import subprocess
 
-        from pactkit.regression import classify_changes
+        from pactkit_codex.regression import classify_changes
 
         files = args.files
         if not files:
@@ -401,7 +401,7 @@ def main():
         print(f"{strategy.upper()} — {reason}")
         # Workflow impact — informational only (STORY-slim-038)
         try:
-            from pactkit.skills.visualize import regression_workflow_impact
+            from pactkit_codex.skills.visualize import regression_workflow_impact
 
             wf_lines = regression_workflow_impact(".", files)
             for line in wf_lines:
@@ -413,7 +413,7 @@ def main():
     elif args.command == "context":
         from pathlib import Path
 
-        from pactkit.context_gen import generate_context
+        from pactkit_codex.context_gen import generate_context
 
         content = generate_context(Path.cwd(), command="pactkit context")
         ctx_path = Path.cwd() / "docs" / "product" / "context.md"
@@ -424,7 +424,7 @@ def main():
     elif args.command == "sec-scope":
         from pathlib import Path
 
-        from pactkit.sec_scope import detect_security_scope, format_markdown_table
+        from pactkit_codex.sec_scope import detect_security_scope, format_markdown_table
 
         if not args.files:
             print("Usage: pactkit sec-scope <file1> [file2 ...]")
@@ -435,7 +435,7 @@ def main():
     elif args.command == "lint-context":
         from pathlib import Path
 
-        from pactkit.validators import lint_context
+        from pactkit_codex.validators import lint_context
 
         errors = lint_context(Path(args.path))
         if errors:
@@ -448,7 +448,7 @@ def main():
     elif args.command == "lint-lessons":
         from pathlib import Path
 
-        from pactkit.validators import lint_lessons
+        from pactkit_codex.validators import lint_lessons
 
         errors = lint_lessons(Path(args.path))
         if errors:
@@ -461,7 +461,7 @@ def main():
     elif args.command == "lint-testcase":
         from pathlib import Path
 
-        from pactkit.validators import lint_testcase
+        from pactkit_codex.validators import lint_testcase
 
         errors = lint_testcase(Path(args.path))
         if errors:
@@ -474,7 +474,7 @@ def main():
     elif args.command == "visualize":
         from pathlib import Path
 
-        from pactkit.lazy_visualize import run_visualize_graphs, run_visualize_single, should_visualize
+        from pactkit_codex.lazy_visualize import run_visualize_graphs, run_visualize_single, should_visualize
 
         project_root = Path.cwd()
         if args.lazy:
@@ -492,7 +492,7 @@ def main():
     elif args.command == "doctor":
         from pathlib import Path
 
-        from pactkit.doctor import check_config_drift, check_hld_module_count, check_orphaned_specs, check_stale_graphs
+        from pactkit_codex.doctor import check_config_drift, check_hld_module_count, check_orphaned_specs, check_stale_graphs
 
         root = Path.cwd()
         has_issues = False
@@ -537,7 +537,7 @@ def main():
     elif args.command == "backfill-release":
         from pathlib import Path
 
-        from pactkit.backfill import scan_and_replace_tbd
+        from pactkit_codex.backfill import scan_and_replace_tbd
 
         result = scan_and_replace_tbd(Path.cwd(), args.version)
         for item in result["backfilled"]:
@@ -550,7 +550,7 @@ def main():
     elif args.command == "issue-sync":
         from pathlib import Path
 
-        from pactkit.issue_sync import issue_sync
+        from pactkit_codex.issue_sync import issue_sync
 
         result = issue_sync(args.item_id, Path.cwd())
         print(result["message"])
@@ -560,7 +560,7 @@ def main():
     elif args.command == "test-map":
         from pathlib import Path
 
-        from pactkit.test_mapper import map_to_tests
+        from pactkit_codex.test_mapper import map_to_tests
 
         if not args.files:
             print("Usage: pactkit test-map <file1> [file2 ...]")
@@ -572,7 +572,7 @@ def main():
     elif args.command == "lint":
         from pathlib import Path
 
-        from pactkit.lint_runner import run_lint
+        from pactkit_codex.lint_runner import run_lint
 
         result = run_lint(Path.cwd(), fix=args.fix)
         if result["stdout"]:
@@ -587,7 +587,7 @@ def main():
     elif args.command == "lesson-append":
         from pathlib import Path
 
-        from pactkit.lessons import append_lesson
+        from pactkit_codex.lessons import append_lesson
 
         result = append_lesson(Path.cwd(), args.story, args.text, args.context)
         import json
@@ -596,7 +596,7 @@ def main():
     elif args.command == "invariants-refresh":
         from pathlib import Path
 
-        from pactkit.invariants import refresh_test_count
+        from pactkit_codex.invariants import refresh_test_count
 
         result = refresh_test_count(Path.cwd(), args.test_count)
         import json
@@ -605,7 +605,7 @@ def main():
     elif args.command == "coverage-gate":
         from pathlib import Path
 
-        from pactkit.coverage_gate import check_coverage
+        from pactkit_codex.coverage_gate import check_coverage
 
         result = check_coverage(args.files, Path.cwd())
         import json
@@ -614,7 +614,7 @@ def main():
     elif args.command == "spec-status":
         from pathlib import Path
 
-        from pactkit.spec_status import update_spec_status
+        from pactkit_codex.spec_status import update_spec_status
 
         result = update_spec_status(Path(args.spec), args.status)
         print(result["message"])

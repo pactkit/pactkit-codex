@@ -16,7 +16,7 @@ class TestProjectLevelFiles:
 
     def _generate(self, project_root, pre_create_agents_md=False, pre_create_yaml=False):
         """Helper to generate project files."""
-        from pactkit.generators.deployer import _generate_codex_project_files
+        from pactkit_codex.generators.deployer import _generate_codex_project_files
 
         project_root.mkdir(parents=True, exist_ok=True)
         if pre_create_agents_md:

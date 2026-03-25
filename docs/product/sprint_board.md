@@ -2,6 +2,33 @@
 
 ## 📋 Backlog
 
+### [STORY-010] Project-level Dual-File Layered Architecture for Codex
+> Spec: docs/specs/STORY-010.md
+
+- [ ] 1. Remove no-overwrite guard for root AGENTS.md (make it PactKit-managed)
+- [ ] 2. Add _generate_codex_local_md_if_missing() for .codex/AGENTS.local.md
+- [ ] 3. Add migration heuristic for user-modified AGENTS.md
+- [ ] 4. Update AGENTS.md template to reference AGENTS.local.md
+- [ ] 5. Unit tests for AC1-AC6
+
+### [BUG-005] Hardcoded `.claude` Path References Throughout Codebase
+> Spec: docs/specs/BUG-005.md
+
+- [ ] 1. Fix visualize.py — 14 occurrences of `.claude` → `.codex`, remove `.opencode`
+- [ ] 2. Fix board.py + scaffold.py — update pactkit.yaml lookup and default paths
+- [ ] 3. Fix cli.py help text, adapter.py, doctor.py, scripts.py, config.py
+- [ ] 4. Update profiles.py docstrings
+- [ ] 5. Remove all `.opencode` references
+- [ ] 6. Verify deployer replace coverage + run full test suite
+
+### [STORY-011] Per-Command Rule Loading — Extract Rules from AGENTS.md
+> Spec: docs/specs/STORY-011.md
+
+- [ ] 1. Add `_deploy_codex_rules()` to deploy rule files to `~/.codex/rules/`
+- [ ] 2. Inject Prerequisites header into each command prompt via `COMMAND_RULES_MAP`
+- [ ] 3. Replace inline rules in AGENTS.md with index table
+- [ ] 4. Verify credential safety in all commands (SEC-1)
+- [ ] 5. Unit tests for AC1-AC6
 
 ## 🔄 In Progress
 
@@ -62,6 +89,11 @@
 > Spec: docs/specs/STORY-008.md
 
 - [x] 1. Verify all artifacts created 2. Test slash commands in TUI 3. Test skill execution 4. Run mini PDCA cycle 5. Grep for leaked refs
+
+### [BUG-004] Package Name Collision — pactkit-codex Uses Same Package Name as pactkit
+> Spec: docs/specs/BUG-004.md
+
+- [x] 1. Rename src/pactkit/ to src/pactkit_codex/ 2. Update all imports 3. Update pyproject.toml 4. Update ruff per-file-ignores 5. All 92 tests pass
 
 ### [STORY-009] Remove OpenCode/Classic Deployment Code from pactkit-codex
 > Spec: docs/specs/STORY-009.md

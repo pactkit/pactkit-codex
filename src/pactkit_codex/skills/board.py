@@ -25,7 +25,7 @@ _TITLE_RE = rf"^#{{3,4}} \[?({ITEM_ID_RE})\]?:?\s*(.*)"
 
 # Section markers
 # STORY-slim-007: canonical values defined in src/pactkit/schemas.py BOARD_SECTION_*.
-# This standalone script cannot import pactkit, so values are inlined here.
+# This standalone script cannot import pactkit_codex, so values are inlined here.
 # When updating, also update src/pactkit/schemas.py.
 _BACKLOG = "## 📋 Backlog"
 _IN_PROGRESS = "## 🔄 In Progress"

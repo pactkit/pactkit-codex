@@ -17,7 +17,7 @@ from pathlib import Path
 
 # Import schema constants (STORY-slim-007: single source of truth)
 try:
-    from pactkit.schemas import (
+    from pactkit_codex.schemas import (
         SPEC_AC_PATTERN,
         SPEC_GIVEN_WHEN_THEN,
         SPEC_REQUIRED_METADATA_FIELDS,

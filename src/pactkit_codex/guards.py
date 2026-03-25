@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pactkit import __version__
-from pactkit.config import find_pactkit_yaml, load_config
+from pactkit_codex import __version__
+from pactkit_codex.config import find_pactkit_yaml, load_config
 
 
 def check_init_markers(project_root: Path) -> tuple[bool, list[str]]:

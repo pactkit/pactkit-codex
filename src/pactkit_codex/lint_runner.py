@@ -7,8 +7,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from pactkit.cleaners import detect_stack
-from pactkit.prompts.workflows import LANG_PROFILES
+from pactkit_codex.cleaners import detect_stack
+from pactkit_codex.prompts.workflows import LANG_PROFILES
 
 
 def run_lint(
@@ -37,7 +37,7 @@ def run_lint(
     auto_fix = False
     lint_blocking = False
     try:
-        from pactkit.config import find_pactkit_yaml, load_config
+        from pactkit_codex.config import find_pactkit_yaml, load_config
 
         yaml_path = find_pactkit_yaml(project_root)
         cfg = load_config(yaml_path) if yaml_path else {}

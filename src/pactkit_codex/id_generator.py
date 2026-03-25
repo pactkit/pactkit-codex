@@ -13,7 +13,7 @@ def next_story_id(specs_dir: Path, developer: str) -> str:
 
     Args:
         specs_dir: Path to docs/specs/ directory.
-        developer: Developer name from pactkit.yaml (empty = no prefix).
+        developer: Developer name from pactkit_codex.yaml (empty = no prefix).
 
     Returns:
         Next Story ID string, e.g. "STORY-slim-014" or "STORY-001".

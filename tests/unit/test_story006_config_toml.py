@@ -18,7 +18,7 @@ class TestConfigToml:
 
     def _generate(self, codex_root):
         """Helper to generate config.toml."""
-        from pactkit.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.generators.deployer import _generate_codex_config_toml
 
         _generate_codex_config_toml(codex_root)
         return codex_root / "config.toml"
@@ -39,7 +39,7 @@ class TestConfigToml:
         config_path = codex_root / "config.toml"
         config_path.write_text('model = "gpt-4o"\n')
 
-        from pactkit.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.generators.deployer import _generate_codex_config_toml
 
         _generate_codex_config_toml(codex_root)
         data = tomllib.loads(config_path.read_text())
@@ -84,7 +84,7 @@ class TestConfigToml:
             'approval_policy = "auto-edit"\n'
         )
 
-        from pactkit.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.generators.deployer import _generate_codex_config_toml
 
         _generate_codex_config_toml(codex_root)
         data = tomllib.loads(config_path.read_text())

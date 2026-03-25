@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from pactkit.schemas import SPEC_VALID_STATUSES
+from pactkit_codex.schemas import SPEC_VALID_STATUSES
 
 _STATUS_PATTERN = re.compile(r"(\|\s*Status\s*\|\s*)([^|]+?)(\s*\|)")
 

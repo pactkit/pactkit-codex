@@ -66,7 +66,7 @@ _PACTKIT_YAML_CANDIDATES = [
 
 
 def _read_developer_prefix():
-    """Read `developer` field from pactkit.yaml (STORY-072). Returns prefix string or ''."""
+    """Read `developer` field from pactkit_codex.yaml (STORY-072). Returns prefix string or ''."""
     cwd = Path.cwd()
     for candidate in _PACTKIT_YAML_CANDIDATES:
         p = cwd / candidate
@@ -109,7 +109,7 @@ def _inject_developer_prefix(item_id):
 
 # --- SPEC ---
 # STORY-slim-007: SPEC_TEMPLATE is the canonical template defined in src/pactkit/schemas.py.
-# This standalone script cannot import pactkit, so the template is inlined here.
+# This standalone script cannot import pactkit_codex, so the template is inlined here.
 # When updating the template, update BOTH this file AND src/pactkit/schemas.py.
 _SPEC_TEMPLATE = """\
 # {id}: {title}

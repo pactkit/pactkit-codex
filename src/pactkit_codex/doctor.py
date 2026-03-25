@@ -60,7 +60,7 @@ def check_config_drift(project_root: Path) -> dict:
     """
     import yaml
 
-    from pactkit.config import find_pactkit_yaml
+    from pactkit_codex.config import find_pactkit_yaml
 
     yaml_path = find_pactkit_yaml(project_root)
     if yaml_path is None:
@@ -117,8 +117,8 @@ def check_stale_graphs(
     # Find newest source file mtime
     source_dirs = ["src/"]  # Default Python
     try:
-        from pactkit.config import load_config
-        from pactkit.prompts.workflows import LANG_PROFILES
+        from pactkit_codex.config import load_config
+        from pactkit_codex.prompts.workflows import LANG_PROFILES
 
         cfg = load_config(project_root)
         stack = cfg.get("stack", "python")

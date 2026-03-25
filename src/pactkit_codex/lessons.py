@@ -6,7 +6,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from pactkit.schemas import LESSONS_ROW_FORMAT
+from pactkit_codex.schemas import LESSONS_ROW_FORMAT
 
 
 def _is_specific(text: str) -> bool:

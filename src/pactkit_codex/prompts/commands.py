@@ -1,4 +1,4 @@
-from pactkit.prompts.workflows import (
+from pactkit_codex.prompts.workflows import (
     DESIGN_PROMPT,
     HOTFIX_PROMPT,
     SPRINT_PROMPT,
@@ -83,7 +83,7 @@ allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
     - *Rule*: Keep the `code_graph.mmd` as is (it updates automatically).
 
 ## 🎬 Phase 3.1: Story ID Generation
-1.  Run `pactkit next-id` to get the next Story ID (reads developer prefix from pactkit.yaml, scans `docs/specs/`).
+1.  Run `pactkit next-id` to get the next Story ID (reads developer prefix from pactkit_codex.yaml, scans `docs/specs/`).
 2.  **Output checkpoint**: Print "Story ID determined: {ID}. Writing Spec now."
 
 ## 🎬 Phase 3.2a: Scaffold + Metadata Table & Requirements

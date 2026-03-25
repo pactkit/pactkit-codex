@@ -64,7 +64,7 @@ _TEST_MAP_PATTERNS = {
 
 
 def _load_scan_excludes(root):
-    """Load scan_excludes from pactkit.yaml if present. Returns list or None.
+    """Load scan_excludes from pactkit_codex.yaml if present. Returns list or None.
 
     Searches .claude/pactkit.yaml then .opencode/pactkit.yaml.
     Guarded by try/except so standalone script fails gracefully if yaml unavailable.
@@ -97,7 +97,7 @@ def _detect_stack(root):
     2. Marker-file detection via _STACK_MARKERS
     3. Default: 'python'
     """
-    # 1. Try reading stack from pactkit.yaml
+    # 1. Try reading stack from pactkit_codex.yaml
     candidates = [
         root / '.claude' / 'pactkit.yaml',
         root / '.opencode' / 'pactkit.yaml',

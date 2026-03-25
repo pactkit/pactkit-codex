@@ -10,8 +10,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from pactkit.cleaners import detect_stack
-from pactkit.prompts.workflows import LANG_PROFILES
+from pactkit_codex.cleaners import detect_stack
+from pactkit_codex.prompts.workflows import LANG_PROFILES
 
 # Canonical graph output path (relative to project root)
 _GRAPH_PATH = Path("docs") / "architecture" / "graphs" / "code_graph.mmd"

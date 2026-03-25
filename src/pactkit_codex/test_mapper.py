@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pactkit.cleaners import detect_stack
-from pactkit.prompts.workflows import LANG_PROFILES
+from pactkit_codex.cleaners import detect_stack
+from pactkit_codex.prompts.workflows import LANG_PROFILES
 
 
 def map_to_tests(

@@ -8,7 +8,7 @@ from typing import Union
 
 import yaml
 
-from pactkit import __version__
+from pactkit_codex import __version__
 
 # ---------------------------------------------------------------------------
 # Valid identifiers (the registry of all known components)
@@ -242,7 +242,7 @@ def detect_venv(project_root: Path) -> tuple[str, str] | None:
 # Search order for pactkit.yaml — auto-generated from FORMAT_PROFILES.
 # Codex-only project: single candidate path.
 # To change, update profiles.py — not here.
-from pactkit.profiles import (  # noqa: E402, F401
+from pactkit_codex.profiles import (  # noqa: E402, F401
     FORMAT_PROFILES,
     PACTKIT_YAML_CANDIDATES,
     VALID_FORMATS,

@@ -22,10 +22,10 @@ def _parse_item_type(item_id: str) -> str:
 
 
 def _get_issue_tracker_provider(project_root: Path) -> str | None:
-    """Read issue_tracker.provider from pactkit.yaml."""
+    """Read issue_tracker.provider from pactkit_codex.yaml."""
     import yaml
 
-    from pactkit.config import find_pactkit_yaml
+    from pactkit_codex.config import find_pactkit_yaml
 
     yaml_path = find_pactkit_yaml(project_root)
     if yaml_path is None:
