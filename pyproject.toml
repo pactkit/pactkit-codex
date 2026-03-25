@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pactkit-codex"
-version = "0.2.2"
+version = "0.2.3"
 description = "PactKit PDCA workflow framework adapted for OpenAI Codex CLI"
 readme = "README.md"
 license = "MIT"

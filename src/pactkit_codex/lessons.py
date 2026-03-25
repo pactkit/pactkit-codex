@@ -6,7 +6,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from pactkit_codex.schemas import LESSONS_ROW_FORMAT
+from pactkit_codex.schemas import LESSONS_ROW_FORMAT, LESSONS_TABLE_HEADER, LESSONS_TABLE_SEPARATOR
 
 
 def _is_specific(text: str) -> bool:
@@ -59,7 +59,11 @@ def append_lesson(
     lessons_path = project_root / "docs" / "architecture" / "governance" / "lessons.md"
 
     if not lessons_path.exists():
-        return {"action": "skipped", "reason": "lessons.md not found"}
+        lessons_path.parent.mkdir(parents=True, exist_ok=True)
+        lessons_path.write_text(
+            f"# Lessons Learned\n\n{LESSONS_TABLE_HEADER}\n{LESSONS_TABLE_SEPARATOR}\n",
+            encoding="utf-8",
+        )
 
     if not _is_specific(text):
         return {"action": "skipped", "reason": "not specific enough — no file/function reference"}
