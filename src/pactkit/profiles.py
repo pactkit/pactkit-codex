@@ -65,12 +65,14 @@ class FormatProfile:
     """Project config dir name. e.g. '.claude', '.opencode', '.codex'."""
     skills_dir: str
     """Where skills are deployed globally. e.g. '~/.claude/skills'."""
-    agents_dir: str
-    """Where agent definitions are deployed. e.g. '~/.claude/agents'."""
+    agents_dir: str | None
+    """Where agent definitions are deployed. None if format is single-agent."""
     commands_dir: str | None
     """Where command playbooks are deployed. None if format has no custom commands."""
     rules_dir: str | None
     """Where rule files are deployed. None if rules are inlined."""
+    prompts_dir: str | None
+    """Where custom slash command prompts are deployed. None if not supported."""
 
     # File Names
     project_instructions_file: str
@@ -115,6 +117,7 @@ FORMAT_PROFILES: dict[str, FormatProfile] = {
         agents_dir="~/.claude/agents",
         commands_dir="~/.claude/commands",
         rules_dir="~/.claude/rules",
+        prompts_dir=None,  # Claude Code uses commands_dir instead
         project_instructions_file="CLAUDE.md",
         global_instructions_file="CLAUDE.md",
         pactkit_yaml_path=".claude/pactkit.yaml",
@@ -135,6 +138,7 @@ FORMAT_PROFILES: dict[str, FormatProfile] = {
         agents_dir="~/.config/opencode/agents",
         commands_dir="~/.config/opencode/commands",
         rules_dir="~/.config/opencode/rules",
+        prompts_dir=None,  # OpenCode uses commands_dir instead
         project_instructions_file="AGENTS.md",
         global_instructions_file="AGENTS.md",
         pactkit_yaml_path=".opencode/pactkit.yaml",
@@ -151,20 +155,21 @@ FORMAT_PROFILES: dict[str, FormatProfile] = {
         display_name="Codex CLI",
         global_config_dir="~/.codex",
         project_config_dir=".codex",
-        skills_dir="$HOME/.agents/skills",
-        agents_dir="~/.codex/agents",
-        commands_dir=None,  # Codex has no custom commands — Skills replace them
+        skills_dir="~/.codex/skills",
+        agents_dir=None,  # Codex is single-agent — no agent files
+        commands_dir=None,  # Codex has no commands concept
         rules_dir=None,  # Codex uses inline rules in AGENTS.md
+        prompts_dir="~/.codex/prompts",  # Codex custom slash commands
         project_instructions_file="AGENTS.md",
         global_instructions_file="AGENTS.md",
         pactkit_yaml_path=".codex/pactkit.yaml",
-        agent_format="toml",
+        agent_format="md",  # AGENTS.md is plain markdown
         rules_import_style="inline",
         excluded_agent_fields=frozenset({"permissionMode", "memory", "skills", "hooks"}),
         has_custom_commands=False,
-        supports_model_routing=True,
+        supports_model_routing=False,  # Single model per session
         supports_mcp=True,
-        skills_path_var="$SKILLS_PATH",
+        skills_path_var="~/.codex/skills",
     ),
 }
 

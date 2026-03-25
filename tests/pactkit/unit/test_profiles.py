@@ -115,7 +115,7 @@ class TestFormatProfilesRegistry:
         p = FORMAT_PROFILES["codex"]
         assert p.global_config_dir == "~/.codex"
         assert p.project_config_dir == ".codex"
-        assert p.agent_format == "toml"
+        assert p.agent_format == "md"  # Codex AGENTS.md is plain markdown
         assert p.rules_import_style == "inline"
         assert p.has_custom_commands is False
         assert p.commands_dir is None

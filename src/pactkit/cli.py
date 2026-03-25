@@ -64,7 +64,7 @@ def main():
     init_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode"],
+        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
         default="classic",
         help="Output format: classic (default), plugin, marketplace, or opencode",
     )
@@ -107,7 +107,7 @@ def main():
     update_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode"],
+        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
         default="classic",
         help="Output format: classic (default), plugin, marketplace, or opencode",
     )
@@ -157,7 +157,7 @@ def main():
     upgrade_parser.add_argument(
         "--format",
         type=str,
-        choices=["classic", "plugin", "marketplace", "opencode"],
+        choices=["classic", "plugin", "marketplace", "opencode", "codex"],
         default="classic",
         help="Output format: classic (default), plugin, marketplace, or opencode",
     )

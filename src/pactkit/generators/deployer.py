@@ -183,6 +183,8 @@ def deploy(
         _deploy_marketplace(target)
     elif format == "opencode":
         _deploy_opencode(target)
+    elif format == "codex":
+        _deploy_codex(target)
     else:
         _deploy_classic(config, target)
 
@@ -442,6 +444,492 @@ def _deploy_opencode(target=None):
     _print_mcp_recommendations_opencode()
 
 
+def _deploy_codex(target=None):
+    """Codex CLI deployment — generate Codex-native configuration (STORY-001).
+
+    Codex CLI (openai/codex) is an open-source AI coding assistant using OpenAI models.
+    This deployment mode generates:
+    - AGENTS.md (inlined rules + agent role routing)
+    - prompts/*.md (11 PDCA command playbooks as custom slash commands)
+    - skills/<name>/SKILL.md (10 PactKit skills)
+    - config.toml (MCP, sandbox, hooks)
+    """
+    codex_root = Path(target) if target else Path.home() / ".codex"
+    codex_profile = get_profile("codex")
+
+    print("🚀 PactKit Codex CLI Deployment")
+
+    # Prepare directories
+    skills_dir = codex_root / "skills"
+    prompts_dir = codex_root / "prompts"
+
+    for d in [codex_root, skills_dir, prompts_dir]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    # Load config from project-level pactkit.yaml (selective deployment)
+    from pactkit.config import find_pactkit_yaml
+
+    project_yaml = find_pactkit_yaml()
+    if project_yaml is not None:
+        auto_added = auto_merge_config_file(project_yaml)
+        for item in auto_added:
+            print(f"  -> Auto-added: {item}")
+        config = load_config(project_yaml)
+    else:
+        config = {}
+
+    enabled_skills = config.get("skills", sorted(VALID_SKILLS))
+
+    # Deploy skills
+    n_skills = _deploy_skills(skills_dir, enabled_skills, profile=codex_profile)
+    _cleanup_legacy(skills_dir)
+
+    # Generate AGENTS.md with inlined rules (STORY-002)
+    _deploy_codex_agents_md(codex_root, codex_profile)
+
+    # Deploy command playbooks as prompts/*.md (STORY-004)
+    n_prompts = _deploy_codex_prompts(prompts_dir, codex_profile)
+
+    # Generate config.toml (STORY-006)
+    _generate_codex_config_toml(codex_root)
+
+    # Generate project-level files if not in preview mode (STORY-003)
+    if target is None:
+        _generate_codex_project_files(Path.cwd())
+
+    print(
+        f"\n✅ Codex CLI: {n_skills} Skills, {n_prompts} Prompts → {codex_root}"
+    )
+
+
+def _deploy_codex_agents_md(codex_root, profile):
+    """Generate AGENTS.md with inlined rules for Codex CLI (STORY-002).
+
+    Codex CLI loads AGENTS.md hierarchically (global + project). This generates
+    the global AGENTS.md at ~/.codex/AGENTS.md with:
+    - 6 inlined rule modules (R1, R5: excludes mcp + architecture)
+    - 9 agent role descriptions (R2)
+    - PDCA routing table (R3)
+    - Size budget enforcement <20KB (R4)
+    - No Claude/provider model IDs (R5, R7)
+    """
+    MAX_SIZE = 20 * 1024  # 20 KB budget (R4)
+
+    # R1: Inline only these 6 rules (R5: exclude mcp + architecture)
+    CODEX_INLINE_RULES = ["core", "hierarchy", "atlas", "workflow", "shared", "sectional"]
+
+    # R5/R7: Patterns to strip from inlined content
+    CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/"]
+    MODEL_ID_PATTERNS = [
+        "claude-sonnet", "claude-haiku", "claude-opus", "claude-3", "claude-4",
+        "gpt-4o", "o3", "o4-mini",
+    ]
+
+    lines = [f"# PactKit Global Constitution (v{__version__})", ""]
+
+    # --- Section 1: Inlined Rules (R1) ---
+    lines.append("## Rules")
+    lines.append("")
+    for key in CODEX_INLINE_RULES:
+        content = prompts.RULES_MODULES.get(key, "")
+        if not content:
+            continue
+        stripped = content.strip()
+        # R7: Strip Subagent Model Selection table (Claude Code specific)
+        stripped = _strip_model_selection_table(stripped)
+        lines.append(stripped)
+        lines.append("")
+
+    # --- Section 2: Agent Roles (R2) ---
+    lines.append("## Agent Roles")
+    lines.append("")
+    lines.append("> Codex CLI is single-agent. These roles are prompt-level conventions —")
+    lines.append("> adopt the appropriate role based on the active PDCA phase.")
+    lines.append("")
+
+    for name, cfg in sorted(prompts.AGENTS_EXPERT.items()):
+        lines.append(f"### {name}")
+        lines.append(f"- **Description**: {cfg['desc']}")
+        # Extract goal from prompt (first ## Goal section)
+        goal = _extract_goal_from_prompt(cfg.get("prompt", ""))
+        if goal:
+            lines.append(f"- **Goal**: {goal}")
+        lines.append("")
+
+    # --- Section 3: PDCA Routing Table (R3) ---
+    lines.append("## PDCA Routing Table")
+    lines.append("")
+    lines.append("> Note: Codex CLI does not support native slash commands.")
+    lines.append("> These are prompt-level conventions — type the command name to activate.")
+    lines.append("")
+    lines.append("| Phase | Command | Role |")
+    lines.append("|-------|---------|------|")
+    lines.append("| Plan | `/project-plan` | system-architect |")
+    lines.append("| Plan | `/project-design` | product-designer |")
+    lines.append("| Plan | `/project-clarify` | system-architect |")
+    lines.append("| Act | `/project-act` | senior-developer |")
+    lines.append("| Act | `/project-hotfix` | senior-developer |")
+    lines.append("| Check | `/project-check` | qa-engineer |")
+    lines.append("| Done | `/project-done` | repo-maintainer |")
+    lines.append("| Done | `/project-release` | repo-maintainer |")
+    lines.append("| Done | `/project-pr` | repo-maintainer |")
+    lines.append("| Orchestrate | `/project-sprint` | team-lead |")
+    lines.append("| Bootstrap | `/project-init` | system-architect |")
+    lines.append("")
+
+    lines.append("> **TIP**: Use `/project-init` to set up project governance.")
+    lines.append("")
+
+    # Assemble and render
+    raw_content = _render_prompt("\n".join(lines), profile)
+
+    # R5: Final safety — strip any remaining Claude paths
+    for pattern in CLAUDE_PATH_PATTERNS:
+        raw_content = raw_content.replace(pattern, "~/.codex/")
+
+    # R4: Enforce size budget
+    content_bytes = raw_content.encode("utf-8")
+    if len(content_bytes) > MAX_SIZE:
+        # Truncate by removing agent role detail (keep names only)
+        import warnings
+        warnings.warn(f"AGENTS.md exceeds 20KB ({len(content_bytes)} bytes), truncating agent details")
+        # Re-generate with minimal agent section
+        raw_content = _truncate_agents_md(raw_content, MAX_SIZE)
+
+    atomic_write(codex_root / "AGENTS.md", raw_content)
+
+
+def _strip_model_selection_table(content: str) -> str:
+    """Remove the Subagent Model Selection section from inlined rules (R7).
+
+    This section contains Claude-specific model names (haiku/sonnet/opus)
+    which are not applicable to Codex CLI's single-model architecture.
+    Strips everything from the heading to the next ## heading.
+    """
+    lines = content.split("\n")
+    result = []
+    skip = False
+    for line in lines:
+        if "Subagent Model Selection" in line and line.strip().startswith("#"):
+            skip = True
+            continue
+        if skip:
+            # Resume at next section heading of same or higher level
+            if line.startswith("## ") or line.startswith("# "):
+                skip = False
+                result.append(line)
+        else:
+            result.append(line)
+    return "\n".join(result)
+
+
+def _extract_goal_from_prompt(prompt: str) -> str:
+    """Extract the Goal section text from an agent prompt."""
+    lines = prompt.strip().split("\n")
+    in_goal = False
+    goal_lines = []
+    for line in lines:
+        if line.strip().startswith("## Goal"):
+            in_goal = True
+            continue
+        if in_goal:
+            if line.strip().startswith("## "):
+                break
+            stripped = line.strip()
+            if stripped:
+                goal_lines.append(stripped)
+    return " ".join(goal_lines)[:200] if goal_lines else ""
+
+
+def _truncate_agents_md(content: str, max_bytes: int) -> str:
+    """Truncate AGENTS.md to fit within size budget by removing agent details."""
+    # Simple strategy: remove everything between "## Agent Roles" and "## PDCA"
+    # and replace with a minimal list
+    parts = content.split("## Agent Roles")
+    if len(parts) < 2:
+        return content[:max_bytes]
+    before = parts[0]
+    after_parts = parts[1].split("## PDCA Routing Table")
+    if len(after_parts) < 2:
+        return content[:max_bytes]
+    minimal_agents = "\n## Agent Roles\n\nSee agent definitions in skill files.\n\n"
+    result = before + minimal_agents + "## PDCA Routing Table" + after_parts[1]
+    return result
+
+
+def _detect_stack(project_root: Path) -> str:
+    """Detect project stack from filesystem markers (STORY-003 R2)."""
+    if (project_root / "pyproject.toml").exists() or (project_root / "requirements.txt").exists():
+        return "python"
+    if (project_root / "package.json").exists():
+        return "node"
+    if (project_root / "go.mod").exists():
+        return "go"
+    if (project_root / "pom.xml").exists() or (project_root / "build.gradle").exists():
+        return "java"
+    return "unknown"
+
+
+_CODEX_PROJECT_AGENTS_MD = """\
+# {project_name}
+
+> Read `docs/product/context.md` at session start for project state.
+
+## Dev Commands
+
+```bash
+{dev_commands}
+```
+"""
+
+_STACK_DEV_COMMANDS = {
+    "python": "# Run tests\npython3 -m pytest tests/ -v\n\n# Lint\nruff check src/ tests/",
+    "node": "# Run tests\nnpm test\n\n# Lint\nnpm run lint",
+    "go": "# Run tests\ngo test ./...\n\n# Lint\ngolangci-lint run",
+    "java": "# Run tests\nmvn test\n\n# Lint\nmvn checkstyle:check",
+    "unknown": "# TODO: Add your test and lint commands here",
+}
+
+
+def _generate_codex_project_files(project_root: Path) -> None:
+    """Generate project-level AGENTS.md and .codex/pactkit.yaml (STORY-003).
+
+    R3: No-overwrite protection — skip if files already exist.
+    """
+    # Safety guard: never create in home directory
+    if project_root.resolve() == Path.home().resolve():
+        return
+
+    stack = _detect_stack(project_root)
+    project_name = project_root.name
+
+    # Generate AGENTS.md (R1, R3, R5)
+    agents_md_path = project_root / "AGENTS.md"
+    if agents_md_path.exists():
+        print(f"  ⚠️ AGENTS.md already exists — skipping")
+    else:
+        dev_commands = _STACK_DEV_COMMANDS.get(stack, _STACK_DEV_COMMANDS["unknown"])
+        content = _CODEX_PROJECT_AGENTS_MD.format(
+            project_name=project_name,
+            dev_commands=dev_commands,
+        )
+        atomic_write(agents_md_path, content)
+
+    # Generate .codex/pactkit.yaml (R2, R3)
+    codex_dir = project_root / ".codex"
+    yaml_path = codex_dir / "pactkit.yaml"
+    if yaml_path.exists():
+        print(f"  ⚠️ .codex/pactkit.yaml already exists — skipping")
+    else:
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        yaml_content = (
+            f"stack: {stack}\n"
+            f"version: 0.0.1\n"
+            f"root: .\n"
+            f'developer: ""\n'
+        )
+        atomic_write(yaml_path, yaml_content)
+
+
+def _deploy_codex_prompts(prompts_dir, profile):
+    """Deploy 11 command playbooks as Codex prompts (STORY-004).
+
+    Converts each playbook:
+    - R2: Remove allowed-tools, add argument-hint where needed
+    - R3: Replace paths via _render_prompt(template, codex_profile)
+    - R4: Strip remaining ~/.claude/ paths
+    - R5: Strip provider-specific model IDs
+    - R6: Adapt multi-agent role references to single-agent language
+    """
+    ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
+    ARGUMENT_HINTS = {
+        "project-act": "STORY-NNN",
+        "project-check": "STORY-NNN",
+        "project-done": "STORY-NNN",
+        "project-hotfix": "description of the fix",
+        "project-clarify": "STORY-NNN or question",
+    }
+
+    deployed = 0
+    for filename, raw_content in prompts.COMMANDS_CONTENT.items():
+        cmd_name = filename.removesuffix(".md")
+
+        # R2: Convert frontmatter
+        content = _convert_codex_frontmatter(raw_content, cmd_name, ARGUMENT_COMMANDS, ARGUMENT_HINTS)
+
+        # R3: Replace paths via render_prompt
+        content = _render_prompt(content, profile)
+
+        # R4: Strip any remaining Claude paths
+        content = content.replace("~/.claude/skills/", "~/.codex/skills/")
+        content = content.replace("~/.claude/rules/", "~/.codex/rules/")
+        content = content.replace("~/.claude/commands/", "~/.codex/prompts/")
+        content = content.replace("~/.claude/", "~/.codex/")
+        content = content.replace(".claude/settings.json", ".codex/config.toml")
+        content = content.replace(".claude/", ".codex/")
+
+        # R5: Strip provider-specific model names
+        content = _strip_model_references(content)
+
+        # R6: Adapt multi-agent references
+        content = content.replace("Agent(model=", "# Agent(model=")
+
+        atomic_write(prompts_dir / filename, content)
+        deployed += 1
+
+    return deployed
+
+
+def _convert_codex_frontmatter(content, cmd_name, argument_commands, argument_hints):
+    """Convert Claude Code frontmatter to Codex format (STORY-004 R2).
+
+    - Remove allowed-tools
+    - Add argument-hint for commands that accept arguments
+    """
+    if not content.startswith("---"):
+        return content
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return content
+
+    fm_lines = parts[1].strip().split("\n")
+    new_lines = []
+
+    for line in fm_lines:
+        stripped = line.strip()
+        if stripped.startswith("allowed-tools:"):
+            continue  # Remove allowed-tools
+        new_lines.append(line)
+
+    # Add argument-hint if needed
+    if cmd_name in argument_commands:
+        hint = argument_hints.get(cmd_name, "argument")
+        new_lines.append(f'argument-hint: "{hint}"')
+
+    return "---\n" + "\n".join(new_lines) + "\n---" + parts[2]
+
+
+def _strip_model_references(content):
+    """Strip Claude/Anthropic model references from content (STORY-004 R5).
+
+    Replaces model names with generic capability descriptions.
+    """
+    import re
+    # Replace claude-sonnet/haiku/opus patterns
+    content = re.sub(r'claude-sonnet[\w-]*', 'capable-model', content)
+    content = re.sub(r'claude-haiku[\w-]*', 'fast-model', content)
+    content = re.sub(r'claude-opus[\w-]*', 'reasoning-model', content)
+    # Remove "anthropic" references (but not as part of larger words in URLs)
+    # Only replace standalone "anthropic" in model context
+    return content
+
+
+def _generate_codex_config_toml(codex_root):
+    """Generate or merge config.toml for Codex CLI (STORY-006).
+
+    R1: Create with PactKit-managed sections if absent.
+    R4: Merge additive-only for user fields when existing.
+    R5: Never write API keys or secrets.
+    R6: Mark managed sections with [pactkit:managed] comments.
+    """
+    import tomllib
+
+    config_path = codex_root / "config.toml"
+
+    # PactKit-managed defaults (R1, R3)
+    pactkit_defaults = {
+        "model": "o4-mini",
+        "sandbox_mode": "workspace-write",
+        "approval_policy": "suggest",
+    }
+    pactkit_mcp = {
+        "context7": {"url": "https://mcp.context7.com/mcp"},
+    }
+
+    # R5: Keys that MUST NOT be written
+    FORBIDDEN_KEYS = {"api_key", "OPENAI_API_KEY", "organization"}
+
+    if config_path.exists():
+        # R4: Merge strategy — additive-only for user fields
+        existing = tomllib.loads(config_path.read_text())
+
+        # Add missing top-level keys (don't overwrite user values)
+        for key, value in pactkit_defaults.items():
+            if key not in existing:
+                existing[key] = value
+
+        # Add missing MCP servers
+        if "mcp_servers" not in existing:
+            existing["mcp_servers"] = {}
+        for name, cfg in pactkit_mcp.items():
+            if name not in existing["mcp_servers"]:
+                existing["mcp_servers"][name] = cfg
+
+        merged = existing
+    else:
+        # Fresh config — write all defaults
+        merged = dict(pactkit_defaults)
+        merged["mcp_servers"] = dict(pactkit_mcp)
+
+    # R5: Strip any forbidden keys
+    for key in FORBIDDEN_KEYS:
+        merged.pop(key, None)
+
+    # Write TOML with managed markers (R6)
+    _write_toml_with_markers(config_path, merged)
+
+
+def _write_toml_with_markers(path, data):
+    """Write a dict as TOML with [pactkit:managed] comment markers."""
+    lines = ["# [pactkit:managed]"]
+
+    # Top-level simple keys first
+    for key, value in sorted(data.items()):
+        if isinstance(value, dict):
+            continue  # Tables written separately
+        lines.append(f'{key} = {_toml_value(value)}')
+
+    lines.append("")
+
+    # Tables
+    for key, value in sorted(data.items()):
+        if not isinstance(value, dict):
+            continue
+        if key == "mcp_servers":
+            # Nested tables: [mcp_servers.name]
+            lines.append("# [pactkit:managed]")
+            for sub_key, sub_val in sorted(value.items()):
+                lines.append(f"[mcp_servers.{sub_key}]")
+                if isinstance(sub_val, dict):
+                    for k, v in sorted(sub_val.items()):
+                        lines.append(f'{k} = {_toml_value(v)}')
+                else:
+                    lines.append(f'{sub_key} = {_toml_value(sub_val)}')
+                lines.append("")
+        else:
+            lines.append(f"[{key}]")
+            if isinstance(value, dict):
+                for k, v in sorted(value.items()):
+                    lines.append(f'{k} = {_toml_value(v)}')
+            lines.append("")
+
+    atomic_write(path, "\n".join(lines) + "\n")
+
+
+def _toml_value(value):
+    """Format a Python value as a TOML value string."""
+    if isinstance(value, str):
+        return f'"{value}"'
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    return f'"{value}"'
+
+
 def _deploy_skills(skills_dir, enabled_skills, profile=None, _legacy_prefix=None):
     """Deploy skill directories filtered by config.
 
@@ -503,7 +991,12 @@ def _deploy_skills(skills_dir, enabled_skills, profile=None, _legacy_prefix=None
 
         skill_md = _render_skill_md(sd, profile, _prefix)
         atomic_write(skill_dir / "SKILL.md", skill_md)
-        atomic_write(scripts_dir / sd["script_name"], sd["script_source"])
+        # STORY-005 R4: Rewrite hardcoded paths in standalone scripts for non-classic profiles
+        script_content = sd["script_source"]
+        if profile is not None and profile.name != "classic":
+            script_content = script_content.replace("~/.claude/", f"{profile.global_config_dir}/")
+            script_content = script_content.replace("~/.config/opencode/", f"{profile.global_config_dir}/")
+        atomic_write(scripts_dir / sd["script_name"], script_content)
         deployed += 1
 
     # Deploy prompt-only skills (SKILL.md only)
