@@ -178,9 +178,8 @@ def update_task(sid, tasks_list):
 
 
 def update_version(version):
-    # STORY-072: Multi-path lookup (.claude/ then .opencode/)
     yaml_path = None
-    for c in [".claude/pactkit.yaml", ".opencode/pactkit.yaml"]:
+    for c in [".codex/pactkit.yaml"]:
         p = Path.cwd() / c
         if p.exists():
             yaml_path = p

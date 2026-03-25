@@ -69,7 +69,7 @@ def check_config_drift(project_root: Path) -> dict:
     with open(yaml_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    config_dir = yaml_path.parent  # .claude/ or .opencode/
+    config_dir = yaml_path.parent  # .codex/
     missing: list[dict] = []
 
     # Check agents

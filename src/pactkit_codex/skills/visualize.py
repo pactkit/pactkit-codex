@@ -27,7 +27,7 @@ def init_architecture():
 
 # --- SCAN HELPERS (shared across modes) ---
 SCAN_EXCLUDES = {
-    'venv', '_venv', '.venv', '.env', 'env', '__pycache__', '.git', '.claude',
+    'venv', '_venv', '.venv', '.env', 'env', '__pycache__', '.git', '.codex',
     'tests', 'docs', 'node_modules', 'site-packages', 'dist', 'build',
     'skills', 'commands', 'rules', 'agents',  # PactKit marketplace dirs (BUG-006)
 }
@@ -66,12 +66,11 @@ _TEST_MAP_PATTERNS = {
 def _load_scan_excludes(root):
     """Load scan_excludes from pactkit_codex.yaml if present. Returns list or None.
 
-    Searches .claude/pactkit.yaml then .opencode/pactkit.yaml.
+    Searches .codex/pactkit.yaml.
     Guarded by try/except so standalone script fails gracefully if yaml unavailable.
     """
     candidates = [
-        root / '.claude' / 'pactkit.yaml',
-        root / '.opencode' / 'pactkit.yaml',
+        root / '.codex' / 'pactkit.yaml',
     ]
     for path in candidates:
         if path.exists():
@@ -99,8 +98,7 @@ def _detect_stack(root):
     """
     # 1. Try reading stack from pactkit_codex.yaml
     candidates = [
-        root / '.claude' / 'pactkit.yaml',
-        root / '.opencode' / 'pactkit.yaml',
+        root / '.codex' / 'pactkit.yaml',
     ]
     for path in candidates:
         if path.exists():
@@ -900,8 +898,8 @@ def visualize(target='.', focus=None, mode='file', entry=None, depth=0, max_node
             # Check staleness: compare mmd mtime against command/skill/rule files
             mmd_mtime = dest.stat().st_mtime
             stale = False
-            for check_dir_name in ['.claude/commands', '.claude/skills', '.claude/rules',
-                                   'commands', 'skills', 'rules']:
+            for check_dir_name in ['.codex/prompts', '.codex/skills', '.codex/rules',
+                                   'prompts', 'skills', 'rules']:
                 check_dir = root / check_dir_name
                 if check_dir.is_dir():
                     for f in check_dir.rglob('*'):
@@ -959,7 +957,7 @@ def visualize(target='.', focus=None, mode='file', entry=None, depth=0, max_node
     dest.write_text(content, encoding='utf-8')
     return f'✅ Graph: {dest}'
 
-def list_rules(): return 'Rules defined in ~/.claude/CLAUDE.md'
+def list_rules(): return 'Rules defined in ~/.codex/AGENTS.md'
 
 
 # --- WORKFLOW GRAPH (STORY-slim-035) ---
@@ -1147,7 +1145,7 @@ class TopologyParser(abc.ABC):
 
 # STORY-slim-040 R2: Topology marker lists for auto-detection
 _TOPOLOGY_MARKERS: dict[str, list[str]] = {
-    'pdca': ['.claude/commands/', 'commands/', '.claude/pactkit.yaml', 'pactkit.yaml'],
+    'pdca': ['.codex/prompts/', 'prompts/', '.codex/pactkit.yaml', 'pactkit.yaml'],
     'service': ['docker-compose.yml', 'docker-compose.yaml', 'kubernetes/', 'k8s/', 'openapi.yaml', 'swagger.json'],
     'frontend': ['next.config.js', 'next.config.ts', 'nuxt.config.ts', 'vite.config.ts', 'app/layout.tsx', 'pages/_app.tsx', 'src/router/', 'src/store/'],
 }
@@ -1187,7 +1185,7 @@ class PdcaParser(TopologyParser):
 
     Declared kind_order and kind_labels for PDCA topology.
     """
-    markers = ['.claude/commands/', 'commands/', '.claude/pactkit.yaml', '.opencode/pactkit.yaml']
+    markers = ['.codex/prompts/', 'prompts/', '.codex/pactkit.yaml']
     kind_order = ['command', 'agent', 'skill', 'file']
     kind_labels = {'command': 'Commands', 'agent': 'Agents', 'skill': 'Skills', 'file': 'Files'}
 
@@ -1202,30 +1200,30 @@ class PdcaParser(TopologyParser):
         root = Path(root)
         # Directory discovery (moved from build_workflow_graph per R3)
         if commands_dir is None:
-            for candidate in [root / '.claude' / 'commands', root / 'commands']:
+            for candidate in [root / '.codex' / 'prompts', root / 'prompts']:
                 if candidate.is_dir():
                     commands_dir = candidate
                     break
             if commands_dir is None:
-                home_cmd = Path.home() / '.claude' / 'commands'
+                home_cmd = Path.home() / '.codex' / 'prompts'
                 if home_cmd.is_dir():
                     commands_dir = home_cmd
         if rules_dir is None:
-            for candidate in [root / '.claude' / 'rules', root / 'rules']:
+            for candidate in [root / '.codex' / 'rules', root / 'rules']:
                 if candidate.is_dir():
                     rules_dir = candidate
                     break
             if rules_dir is None:
-                home_rules = Path.home() / '.claude' / 'rules'
+                home_rules = Path.home() / '.codex' / 'rules'
                 if home_rules.is_dir():
                     rules_dir = home_rules
         if skills_dir is None:
-            for candidate in [root / '.claude' / 'skills', root / 'skills']:
+            for candidate in [root / '.codex' / 'skills', root / 'skills']:
                 if candidate.is_dir():
                     skills_dir = candidate
                     break
             if skills_dir is None:
-                home_skills = Path.home() / '.claude' / 'skills'
+                home_skills = Path.home() / '.codex' / 'skills'
                 if home_skills.is_dir():
                     skills_dir = home_skills
 

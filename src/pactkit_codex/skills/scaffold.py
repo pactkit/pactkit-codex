@@ -59,8 +59,6 @@ def create_e2e(story, name):
 
 # --- CONFIG ---
 _PACTKIT_YAML_CANDIDATES = [
-    ".opencode/pactkit.yaml",
-    ".claude/pactkit.yaml",
     ".codex/pactkit.yaml",
 ]
 
@@ -178,7 +176,7 @@ _SKILL_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 def create_skill(name, desc, base_dir=None):
     if not _SKILL_NAME_RE.match(name):
         return "❌ Invalid skill name: must match [a-z0-9-]+"
-    base = Path(base_dir) if base_dir else Path.home() / ".claude" / "skills"
+    base = Path(base_dir) if base_dir else Path.home() / ".codex" / "skills"
     root = base / name
     if root.exists():
         return f"❌ Skill already exists: {root}"

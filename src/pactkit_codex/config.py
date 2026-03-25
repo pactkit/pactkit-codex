@@ -181,7 +181,7 @@ def get_default_config() -> dict:
         "visualize": {
             "scan_excludes": [
                 "venv", "_venv", ".venv", ".env", "env",
-                "__pycache__", ".git", ".claude",
+                "__pycache__", ".git", ".codex",
                 "tests", "docs",
                 "node_modules", "site-packages", "dist", "build",
             ],

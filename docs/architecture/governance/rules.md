@@ -9,3 +9,4 @@
 | R3 | Skills are shell scripts in `.codex/` directory | Codex uses `.codex/` for project-level extensions |
 | R4 | OpenAI models only (GPT-4o, o3, o4-mini) | Codex CLI is OpenAI-only — no Anthropic model support |
 | R5 | Spec is the law; code implements spec | Hierarchy of Truth: Spec > Tests > Implementation |
+| R6 | All 100+ tests must pass before commit | Regression safety net — no commit with failing tests |

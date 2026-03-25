@@ -19,24 +19,24 @@ class FormatProfile:
     """Immutable environment-specific configuration profile.
 
     All environment-dependent paths and capabilities live here.
-    No caller should ever hardcode "~/.claude" or ".opencode" — use this.
+    No caller should ever hardcode "~/.codex" — use this profile.
 
     Template Variable Reference (used in prompt templates via _render_prompt()):
     ┌─────────────────────┬───────────────────────────┬──────────────────────────────────────┐
-    │ Variable            │ FormatProfile Field        │ Example (opencode)                   │
+    │ Variable            │ FormatProfile Field        │ Example (codex)                      │
     ├─────────────────────┼───────────────────────────┼──────────────────────────────────────┤
-    │ {SKILLS_ROOT}       │ skills_dir                 │ ~/.config/opencode/skills            │
-    │ {RULES_ROOT}        │ rules_dir                  │ ~/.config/opencode/rules             │
-    │ {GLOBAL_CONFIG_DIR} │ global_config_dir          │ ~/.config/opencode                   │
-    │ {PROJECT_CONFIG_DIR}│ project_config_dir         │ .opencode                            │
+    │ {SKILLS_ROOT}       │ skills_dir                 │ ~/.codex/skills                      │
+    │ {RULES_ROOT}        │ rules_dir                  │ ~/.codex/rules                       │
+    │ {GLOBAL_CONFIG_DIR} │ global_config_dir          │ ~/.codex                             │
+    │ {PROJECT_CONFIG_DIR}│ project_config_dir         │ .codex                               │
     │ {INSTRUCTIONS_FILE} │ project_instructions_file  │ AGENTS.md                            │
-    │ {PACTKIT_YAML}      │ pactkit_yaml_path          │ .opencode/pactkit.yaml               │
-    │ {DISPLAY_NAME}      │ display_name               │ OpenCode                             │
+    │ {PACTKIT_YAML}      │ pactkit_yaml_path          │ .codex/pactkit.yaml                  │
+    │ {DISPLAY_NAME}      │ display_name               │ Codex CLI                            │
     ├─────────────────────┼───────────────────────────┼──────────────────────────────────────┤
-    │ {VISUALIZE_CMD}     │ (derived from skills_dir)  │ python3 ~/.../pactkit-visualize/...  │
-    │ {BOARD_CMD}         │ (derived from skills_dir)  │ python3 ~/.../pactkit-board/...      │
-    │ {SCAFFOLD_CMD}      │ (derived from skills_dir)  │ python3 ~/.../pactkit-scaffold/...   │
-    │ {GLOBAL_INSTRUCTIONS│ (derived: dir/file)        │ ~/.config/opencode/AGENTS.md         │
+    │ {VISUALIZE_CMD}     │ (derived from skills_dir)  │ python3 ~/.codex/skills/pactkit-...  │
+    │ {BOARD_CMD}         │ (derived from skills_dir)  │ python3 ~/.codex/skills/pactkit-...  │
+    │ {SCAFFOLD_CMD}      │ (derived from skills_dir)  │ python3 ~/.codex/skills/pactkit-...  │
+    │ {GLOBAL_INSTRUCTIONS│ (derived: dir/file)        │ ~/.codex/AGENTS.md                   │
     └─────────────────────┴───────────────────────────┴──────────────────────────────────────┘
 
     Adding a new format:
@@ -54,17 +54,17 @@ class FormatProfile:
 
     # Identity
     name: str
-    """Canonical format name: 'classic', 'opencode', 'codex'."""
+    """Canonical format name: 'codex'."""
     display_name: str
-    """Human-readable tool name: 'Claude Code', 'OpenCode', 'Codex CLI'."""
+    """Human-readable tool name: 'Codex CLI'."""
 
     # Directory Structure
     global_config_dir: str
-    """Global config root. e.g. '~/.claude', '~/.config/opencode', '~/.codex'."""
+    """Global config root. e.g. '~/.codex'."""
     project_config_dir: str
-    """Project config dir name. e.g. '.claude', '.opencode', '.codex'."""
+    """Project config dir name. e.g. '.codex'."""
     skills_dir: str
-    """Where skills are deployed globally. e.g. '~/.claude/skills'."""
+    """Where skills are deployed globally. e.g. '~/.codex/skills'."""
     agents_dir: str | None
     """Where agent definitions are deployed. None if format is single-agent."""
     commands_dir: str | None
@@ -76,17 +76,17 @@ class FormatProfile:
 
     # File Names
     project_instructions_file: str
-    """Project-level instructions file name. 'CLAUDE.md' or 'AGENTS.md'."""
+    """Project-level instructions file name. 'AGENTS.md'."""
     global_instructions_file: str
-    """Global instructions file name. 'CLAUDE.md' or 'AGENTS.md'."""
+    """Global instructions file name. 'AGENTS.md'."""
     pactkit_yaml_path: str
-    """Relative path to pactkit.yaml from project root. e.g. '.claude/pactkit.yaml'."""
+    """Relative path to pactkit.yaml from project root. e.g. '.codex/pactkit.yaml'."""
 
     # Format & Serialization
     agent_format: Literal["md", "toml"]
-    """Agent definition format: 'md' (Claude/OpenCode) or 'toml' (Codex)."""
+    """Agent definition format: 'toml' (Codex)."""
     rules_import_style: Literal["@import", "instructions", "inline"]
-    """How rules are loaded: '@import' (classic), 'instructions' glob (OpenCode), 'inline' (Codex)."""
+    """How rules are loaded: 'inline' (Codex)."""
     excluded_agent_fields: frozenset
     """Agent YAML fields to exclude for this format. Replaces CLAUDE_ONLY_FIELDS."""
 
@@ -100,7 +100,7 @@ class FormatProfile:
 
     # Playbook Variables
     skills_path_var: str
-    """Skills path used in deployed playbook templates. e.g. '~/.claude/skills'."""
+    """Skills path used in deployed playbook templates. e.g. '~/.codex/skills'."""
 
 
 # ---------------------------------------------------------------------------

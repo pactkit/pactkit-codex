@@ -1,5 +1,5 @@
 # pactkit/scripts.py
-# 存放要注入到用户 ~/.claude/scripts/ 下的工具源码
+# 存放要注入到用户 ~/.codex/scripts/ 下的工具源码
 
 TASK_MANAGER_CODE = r"""#!/usr/bin/env python3
 import sys

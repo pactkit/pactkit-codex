@@ -59,7 +59,7 @@ def main():
         "--target",
         type=str,
         default=None,
-        help="Custom target directory (default: ~/.claude)",
+        help="Custom target directory (default: ~/.codex)",
     )
     init_parser.add_argument(
         "--format",
@@ -102,7 +102,7 @@ def main():
         "--target",
         type=str,
         default=None,
-        help="Custom target directory (default: ~/.claude)",
+        help="Custom target directory (default: ~/.codex)",
     )
     update_parser.add_argument(
         "--format",
@@ -152,7 +152,7 @@ def main():
         "--target",
         type=str,
         default=None,
-        help="Custom target directory (default: ~/.claude)",
+        help="Custom target directory (default: ~/.codex)",
     )
     upgrade_parser.add_argument(
         "--format",

@@ -1,26 +1,24 @@
 # Project Context (Auto-generated)
-> Last updated: 2026-03-25T00:00:00Z by /project-done
+> Last updated: 2026-03-25T18:30:00+08:00 by /project-done
 
 ## Sprint Status
-Backlog: 0 | In Progress: 0 | Done: 12 (STORY-001~009, BUG-001~003)
+Backlog: 2 | In Progress: 0 | Done: 14 items
 
 ## Current Stories
-None — all stories and bugs completed.
+None
 
 ## Recent Completions
-- STORY-009: Remove OpenCode/Classic deployment code (deployer.py 75% smaller)
-- BUG-003: Strip Claude/Anthropic brand refs from deployed artifacts
-- BUG-002: Exclude project-sprint from Codex deployment
+- BUG-005: Hardcoded `.claude` Path References Throughout Codebase
+- BUG-004: Package Name Collision — pactkit-codex Uses Same Package Name as pactkit
+- STORY-009: Remove OpenCode/Classic Deployment Code from pactkit-codex
 
 ## Active Branches
-- develop (current)
+* develop
 
 ## Key Decisions
-- Codex CLI is single-agent: rules inlined into AGENTS.md, no separate agent files
-- Codex prompts ARE commands — single concept, commands_dir = prompts_dir
-- Multi-agent commands (project-sprint) excluded via CODEX_EXCLUDED_PROMPTS
-- Brand sanitization applied at all output points with grep-based E2E verification
-- Fork cleanup (STORY-009) done early: deployer.py 2187 → 549 lines
+- Codex CLI custom prompts are deprecated; skills are the recommended approach (deferred — not blocking)
+- Codex CLI does not support per-command rule binding; use agentic routing instead (STORY-011)
+- Rules currently inlined in AGENTS.md; extraction to separate files planned (STORY-011)
 
 ## Next Recommended Action
-All sprint items complete. Run `/project-pr` to push and create a pull request, or `/project-release` if ready to tag v0.1.0.
+`/project-act STORY-010` or `/project-act STORY-011`

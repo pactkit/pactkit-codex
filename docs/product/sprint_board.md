@@ -11,16 +11,6 @@
 - [ ] 4. Update AGENTS.md template to reference AGENTS.local.md
 - [ ] 5. Unit tests for AC1-AC6
 
-### [BUG-005] Hardcoded `.claude` Path References Throughout Codebase
-> Spec: docs/specs/BUG-005.md
-
-- [ ] 1. Fix visualize.py — 14 occurrences of `.claude` → `.codex`, remove `.opencode`
-- [ ] 2. Fix board.py + scaffold.py — update pactkit.yaml lookup and default paths
-- [ ] 3. Fix cli.py help text, adapter.py, doctor.py, scripts.py, config.py
-- [ ] 4. Update profiles.py docstrings
-- [ ] 5. Remove all `.opencode` references
-- [ ] 6. Verify deployer replace coverage + run full test suite
-
 ### [STORY-011] Per-Command Rule Loading — Extract Rules from AGENTS.md
 > Spec: docs/specs/STORY-011.md
 
@@ -34,6 +24,16 @@
 
 
 ## ✅ Done
+
+### [BUG-005] Hardcoded `.claude` Path References Throughout Codebase
+> Spec: docs/specs/BUG-005.md
+
+- [x] 1. Fix visualize.py — 14 occurrences of `.claude` → `.codex`, remove `.opencode`
+- [x] 2. Fix board.py + scaffold.py — update pactkit.yaml lookup and default paths
+- [x] 3. Fix cli.py help text, adapter.py, doctor.py, scripts.py, config.py
+- [x] 4. Update profiles.py docstrings
+- [x] 5. Remove all `.opencode` references
+- [x] 6. Verify deployer replace coverage + run full test suite (100/100 pass)
 
 ### [BUG-001] Codex FormatProfile Incorrectly Marks commands_dir=None
 > Spec: docs/specs/BUG-001.md

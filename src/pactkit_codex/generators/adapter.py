@@ -49,7 +49,7 @@ def transform(content: str, agent: str) -> str:
 def get_target_dir(agent: str, project_root: str = ".") -> str:
     """Return the target directory path for a given agent type."""
     dirs = {
-        "claude": "~/.claude/commands",  # handled by existing deployer
+        "codex": "~/.codex/prompts",  # handled by existing deployer
         "cursor": f"{project_root}/.cursor/rules",
         "copilot": f"{project_root}/.github",
         "generic": f"{project_root}/.ai/commands",
