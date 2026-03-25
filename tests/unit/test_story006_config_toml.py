@@ -73,7 +73,7 @@ class TestConfigToml:
         data = tomllib.loads(config_path.read_text())
         assert data["model"] == "o4-mini"
         assert data["sandbox_mode"] == "workspace-write"
-        assert data["approval_policy"] == "suggest"
+        assert data["approval_policy"] == "on-request"
 
     def test_r4_merge_preserves_user_keys(self, codex_root):
         """R4: Merge is additive-only for user fields."""

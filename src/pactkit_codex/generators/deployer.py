@@ -556,7 +556,7 @@ def _generate_codex_config_toml(codex_root):
     pactkit_defaults = {
         "model": "o4-mini",
         "sandbox_mode": "workspace-write",
-        "approval_policy": "suggest",
+        "approval_policy": "on-request",
     }
     pactkit_mcp = {
         "context7": {"url": "https://mcp.context7.com/mcp"},
