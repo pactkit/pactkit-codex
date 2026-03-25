@@ -77,17 +77,14 @@ class TestGenerateAgentsMd:
         assert "gpt-4o" not in content
         assert "o4-mini" not in content
 
-    def test_r1_six_rules_inlined(self, codex_root):
-        """R1: 6 specified rules are inlined."""
+    def test_r1_rules_reference_table(self, codex_root):
+        """R1: Rules index table present (STORY-011: rules extracted to files)."""
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
-        # These rules must be inlined per spec
-        assert "Core Protocol" in content
-        assert "Hierarchy of Truth" in content
-        assert "File Atlas" in content
-        assert "Workflow Conventions" in content
-        assert "Shared Protocols" in content
-        assert "Sectional Write" in content
+        # STORY-011 replaced inline rules with a reference table
+        assert "Rules Reference" in content
+        assert "01-core-protocol.md" in content
+        assert "09-credential-safety.md" in content
 
     def test_r5_excluded_rules(self, codex_root):
         """R5: mcp-integration and architecture-principles rules are excluded."""

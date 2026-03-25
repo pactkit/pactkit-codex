@@ -33,13 +33,19 @@ class TestProjectLevelFiles:
         assert (project_root / "AGENTS.md").exists()
         assert (project_root / ".codex" / "pactkit.yaml").exists()
 
-    def test_ac2_no_overwrite_agents_md(self, project_root, capsys):
-        """AC2: Existing AGENTS.md is NOT overwritten."""
+    def test_ac2_agents_md_always_regenerated(self, project_root):
+        """AC2: AGENTS.md is always regenerated (STORY-010 dual-file architecture).
+
+        User content is migrated to .codex/AGENTS.local.md if detected.
+        """
         self._generate(project_root, pre_create_agents_md=True)
         content = (project_root / "AGENTS.md").read_text()
-        assert content == "# User's existing file\n"
-        captured = capsys.readouterr()
-        assert "AGENTS.md already exists" in captured.out or "skip" in captured.out.lower()
+        # STORY-010: Root AGENTS.md is PactKit-managed, always regenerated
+        assert "my-project" in content
+        # User content migrated to local file
+        local_md = project_root / ".codex" / "AGENTS.local.md"
+        assert local_md.exists()
+        assert "User's existing file" in local_md.read_text()
 
     def test_ac3_no_overwrite_yaml(self, project_root, capsys):
         """AC3: Existing pactkit.yaml is NOT overwritten."""
