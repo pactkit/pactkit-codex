@@ -1,23 +1,25 @@
 # Project Context (Auto-generated)
-> Last updated: 2026-03-25T18:27:11+08:00 by pactkit context
+> Last updated: 2026-03-25T23:00:00+08:00 by manual update
 
 ## Sprint Status
-Backlog: 0 | In Progress: 0 | Done: 19 stories
+Backlog: 0 | In Progress: 0 | Done: 20 items
 
 ## Current Stories
 None
 
 ## Recent Completions
-- STORY-008: E2E Verification in Real Codex CLI
-- BUG-004: Package Name Collision — pactkit-codex Uses Same Package Name as pactkit
-- STORY-009: Remove OpenCode/Classic Deployment Code from pactkit-codex
+- BUG-006: PDCA Playbooks Missing Explicit Board/Status Update Instructions (v0.2.2)
+- STORY-013: Thin Wrapper Architecture for Prompts (v0.2.0)
+- HOTFIX-001: Codex config.toml Fixes (v0.1.1, v0.1.2)
 
 ## Active Branches
 * develop
-  main
 
 ## Key Decisions
-- Project initialized — greenfield, no source code yet
+- v0.2.2 fixes: Explicit board/status update instructions in all PDCA playbooks
+- project-act now: moves story to In Progress, updates spec Status field
+- project-done now: moves story to Done section before archive
+- Playbooks have explicit python3 commands instead of vague skill references
 
 ## Next Recommended Action
-`/project-design`
+v0.2.2 released — test full PDCA cycle in new Codex project to verify all updates work

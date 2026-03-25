@@ -8,6 +8,14 @@
 
 ## ✅ Done
 
+### [BUG-006] PDCA Playbooks Missing Explicit Board/Status Update Instructions
+> Spec: (inline fix)
+
+- [x] 1. project-plan: Add explicit board.py add_story command
+- [x] 2. project-act: Add spec-status update to "In Progress", board move instruction
+- [x] 3. project-done: Add board move to "Done" section instruction
+- [x] 4. Release v0.2.2
+
 ### [STORY-013] Thin Wrapper Architecture for Prompts
 > Spec: (inline hotfix)
 

@@ -166,7 +166,8 @@ allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 > **NON-BLOCKING**: This phase NEVER stops Act.
 1.  **Spec exists?**: Check if `docs/specs/{STORY_ID}.md` exists. If not: WARN "Spec not found".
 2.  **Board entry exists?**: Check if `{STORY_ID}` appears in `docs/product/sprint_board.md`. If not: WARN "Board entry not found".
-3.  **Move to In Progress**: If `{STORY_ID}` is found on the board, move it to In Progress section.
+3.  **Move to In Progress**: If `{STORY_ID}` is in Backlog section, use Edit tool to move it to "## 🔄 In Progress" section.
+4.  **Update Spec Status**: Run `pactkit spec-status docs/specs/{STORY_ID}.md "In Progress"` to update Status field.
 4.  **Continue**: Regardless of findings, proceed to Phase 1.
 
 ## 🎬 Phase 1: Precision Targeting
@@ -452,6 +453,7 @@ Run `pactkit coverage-gate <changed-files>` to verify coverage on changed source
 2.  **Auto-Fix**:
     - If tests are GREEN but tasks are `[ ]`, **Ask the user**: "Tests passed but tasks are unchecked. Mark as done?"
     - If user agrees, update `sprint_board.md` immediately.
+2.5. **Move to Done**: Use Edit tool to move the Story entry from "## 🔄 In Progress" to "## ✅ Done" section in `docs/product/sprint_board.md`.
 3.  **Lessons Auto-append (MANDATORY)**: Run `pactkit lesson-append --story {STORY_ID} --text "lesson text" [--context "file.py:func"]`.
     - The command checks specificity (references concrete file/function?) and dedup (different from last 5 entries?).
     - If both pass: appends row using format `{LESSONS_ROW_FORMAT}` where date=YYYY-MM-DD, context={STORY_ID}
