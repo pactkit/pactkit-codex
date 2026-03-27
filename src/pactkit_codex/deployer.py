@@ -615,6 +615,10 @@ def _replace_cli_with_scripts(content):
         rf'`{_VIZ_SCRIPT} \1',
         content,
     )
+    # Codex CLI uses $ prefix for skills, not / (e.g., $project-act not /project-act)
+    content = re.sub(r'`/project-', '`$project-', content)
+    content = re.sub(r'"/project-', '"$project-', content)
+    content = re.sub(r"'/project-", "'$project-", content)
     return content
 
 
