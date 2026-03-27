@@ -255,11 +255,15 @@ class CodexDeployer(DeployerBase):
                 continue
             cmd_name = filename.removesuffix(".md")
 
-            # Strip original frontmatter
+            # Extract description from original frontmatter, then strip it
+            description = cmd_name
             content = raw_content
             if content.startswith("---"):
                 parts = content.split("---", 2)
                 if len(parts) >= 3:
+                    for line in parts[1].strip().split("\n"):
+                        if line.startswith("description:"):
+                            description = line.split(":", 1)[1].strip().strip('"')
                     content = parts[2].lstrip("\n")
 
             content = _render_prompt(content, profile)
@@ -276,7 +280,7 @@ class CodexDeployer(DeployerBase):
             content = CodexDeployer.strip_model_references(content)
             content = content.replace("Agent(model=", "# Agent(model=")
 
-            # Inject rule prerequisites as @references
+            # Build SKILL.md with frontmatter + @references + content
             rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["core", "credential"])
             refs = []
             for key in rule_keys:
@@ -285,7 +289,8 @@ class CodexDeployer(DeployerBase):
                 elif key in RULES_FILES:
                     refs.append(f"@~/.codex/rules/{RULES_FILES[key]}")
 
-            skill_content = "\n".join(refs) + "\n\n" + content
+            frontmatter = f'---\nname: {cmd_name}\ndescription: "{description}"\n---\n\n'
+            skill_content = frontmatter + "\n".join(refs) + "\n\n" + content
 
             skill_dir = skills_dir / cmd_name
             skill_dir.mkdir(parents=True, exist_ok=True)
