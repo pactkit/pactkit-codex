@@ -45,11 +45,11 @@ class TestAC1ArtifactCreation:
         assert len(prompts) == 10, f"Expected 10 prompts, got {len(prompts)}: {[p.name for p in prompts]}"
 
     def test_10_skill_dirs(self, codex_deploy):
-        """R1: 10 skill directories under skills/."""
-        from pactkit.config import VALID_SKILLS
-
+        """R1: 10 embedded skill directories under skills/ (PDCA commands deploy as playbooks, not skills)."""
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
-        assert len(skill_dirs) == len(VALID_SKILLS)
+        # Codex deploys only embedded skills (10), not PDCA command skills (11)
+        # which go to playbooks/ instead. VALID_SKILLS includes both (21).
+        assert len(skill_dirs) == 10
 
     def test_each_skill_has_skill_md(self, codex_deploy):
         """R1: Every skill directory has a SKILL.md file."""

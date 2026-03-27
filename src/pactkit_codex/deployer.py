@@ -60,11 +60,13 @@ _COMMAND_DESCRIPTIONS = {
 }
 
 _ARGUMENT_HINTS = {
+    "project-plan": "feature or change to plan",
     "project-act": "STORY-NNN",
     "project-check": "STORY-NNN",
     "project-done": "STORY-NNN",
     "project-hotfix": "description of the fix",
     "project-clarify": "STORY-NNN or question",
+    "project-design": "product idea or MVP description",
 }
 
 _CODEX_PROJECT_AGENTS_MD = """\
