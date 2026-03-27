@@ -316,7 +316,11 @@ class CodexDeployer(DeployerBase):
         FORBIDDEN_KEYS = {"api_key", "OPENAI_API_KEY", "organization"}
 
         if config_path.exists():
-            existing = tomllib.loads(config_path.read_text())
+            try:
+                existing = tomllib.loads(config_path.read_text())
+            except Exception:
+                # User-edited config may have non-standard TOML; preserve it
+                existing = {}
             for key, value in pactkit_defaults.items():
                 if key not in existing:
                     existing[key] = value
