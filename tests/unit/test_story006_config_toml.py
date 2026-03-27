@@ -18,9 +18,9 @@ class TestConfigToml:
 
     def _generate(self, codex_root):
         """Helper to generate config.toml."""
-        from pactkit_codex.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.deployer import CodexDeployer
 
-        _generate_codex_config_toml(codex_root)
+        CodexDeployer.generate_codex_config_toml(codex_root)
         return codex_root / "config.toml"
 
     def test_ac1_config_created_when_absent(self, codex_root):
@@ -39,9 +39,9 @@ class TestConfigToml:
         config_path = codex_root / "config.toml"
         config_path.write_text('model = "gpt-4o"\n')
 
-        from pactkit_codex.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.deployer import CodexDeployer
 
-        _generate_codex_config_toml(codex_root)
+        CodexDeployer.generate_codex_config_toml(codex_root)
         data = tomllib.loads(config_path.read_text())
         assert data["model"] == "gpt-4o"  # User value preserved
         assert "mcp_servers" in data  # MCP added
@@ -85,9 +85,9 @@ class TestConfigToml:
             'approval_policy = "auto-edit"\n'
         )
 
-        from pactkit_codex.generators.deployer import _generate_codex_config_toml
+        from pactkit_codex.deployer import CodexDeployer
 
-        _generate_codex_config_toml(codex_root)
+        CodexDeployer.generate_codex_config_toml(codex_root)
         data = tomllib.loads(config_path.read_text())
         assert data["model"] == "gpt-4o"
         assert data["my_custom_key"] == "preserved"

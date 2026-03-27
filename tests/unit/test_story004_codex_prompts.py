@@ -35,11 +35,11 @@ class TestCodexPrompts:
 
     def _deploy(self, prompts_dir):
         """Helper to deploy prompts."""
-        from pactkit_codex.generators.deployer import _deploy_codex_prompts
-        from pactkit_codex.profiles import get_profile
+        from pactkit_codex.deployer import CodexDeployer
+        from pactkit.profiles import get_profile
 
         profile = get_profile("codex")
-        return _deploy_codex_prompts(prompts_dir, profile)
+        return CodexDeployer.deploy_codex_prompts(prompts_dir, profile)
 
     def test_ac1_all_10_files_present(self, prompts_dir):
         """AC1: All 10 prompt files are present (sprint excluded)."""

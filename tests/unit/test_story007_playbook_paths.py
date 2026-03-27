@@ -3,20 +3,33 @@
 import pytest
 
 
+def _apply_codex_path_replacements(content):
+    """Apply the same path replacements that deploy_codex_playbooks uses."""
+    content = content.replace("~/.claude/skills/", "~/.codex/skills/")
+    content = content.replace("~/.claude/rules/", "~/.codex/rules/")
+    content = content.replace("~/.claude/commands/", "~/.codex/prompts/")
+    content = content.replace("~/.claude/", "~/.codex/")
+    content = content.replace("~/.config/opencode/", "~/.codex/")
+    content = content.replace(".claude/settings.json", ".codex/config.toml")
+    content = content.replace(".claude/", ".codex/")
+    return content
+
+
 class TestRenderedCodexPrompts:
     """AC1, AC3, AC4: Verify rendered output for codex profile is clean."""
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        """Pre-render all command playbooks with codex profile."""
-        from pactkit_codex.generators.deployer import _render_prompt
-        from pactkit_codex.prompts.commands import COMMANDS_CONTENT
-        from pactkit_codex.profiles import get_profile
+        """Pre-render all command playbooks with codex profile and apply path replacements."""
+        from pactkit.generators.deployer import _render_prompt
+        from pactkit.prompts.commands import COMMANDS_CONTENT
+        from pactkit.profiles import get_profile
 
         self.profile = get_profile("codex")
         self.rendered = {}
         for filename, template in COMMANDS_CONTENT.items():
-            self.rendered[filename] = _render_prompt(template, self.profile)
+            rendered = _render_prompt(template, self.profile)
+            self.rendered[filename] = _apply_codex_path_replacements(rendered)
 
     def test_ac1_no_claude_paths_in_rendered(self):
         """AC1: No ~/.claude/ paths in any rendered codex prompt."""
@@ -57,12 +70,13 @@ class TestInitPlaybookCodexBranch:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from pactkit_codex.generators.deployer import _render_prompt
-        from pactkit_codex.prompts.commands import COMMANDS_CONTENT
-        from pactkit_codex.profiles import get_profile
+        from pactkit.generators.deployer import _render_prompt
+        from pactkit.prompts.commands import COMMANDS_CONTENT
+        from pactkit.profiles import get_profile
 
         self.profile = get_profile("codex")
-        self.init_content = _render_prompt(COMMANDS_CONTENT["project-init.md"], self.profile)
+        rendered = _render_prompt(COMMANDS_CONTENT["project-init.md"], self.profile)
+        self.init_content = _apply_codex_path_replacements(rendered)
 
     def test_ac2_codex_detection_present(self):
         """R3: Init playbook includes Codex environment detection."""
@@ -83,8 +97,8 @@ class TestSourceFileAudit:
 
     def _get_prompt_template_content(self):
         """Get all prompt template content (commands, skills, agents, rules modules)."""
-        from pactkit_codex.prompts.commands import COMMANDS_CONTENT
-        from pactkit_codex.prompts import agents, rules
+        from pactkit.prompts.commands import COMMANDS_CONTENT
+        from pactkit.prompts import agents, rules
 
         # Collect all template strings (the ones that go through _render_prompt)
         templates = {}
@@ -119,13 +133,13 @@ class TestDeployedCodexPromptsClean:
 
     def test_full_deploy_no_claude_paths(self, tmp_path):
         """Full codex deploy: no ~/.claude/ in any prompt file."""
-        from pactkit_codex.generators.deployer import _deploy_codex_prompts
-        from pactkit_codex.profiles import get_profile
+        from pactkit_codex.deployer import CodexDeployer
+        from pactkit.profiles import get_profile
 
         prompts_dir = tmp_path / "prompts"
         prompts_dir.mkdir()
         profile = get_profile("codex")
-        _deploy_codex_prompts(prompts_dir, profile)
+        CodexDeployer.deploy_codex_prompts(prompts_dir, profile)
 
         for f in prompts_dir.glob("*.md"):
             content = f.read_text()

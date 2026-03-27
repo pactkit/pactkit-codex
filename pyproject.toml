@@ -1,16 +1,16 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pactkit-codex"
-version = "0.2.3"
-description = "PactKit PDCA workflow framework adapted for OpenAI Codex CLI"
+version = "2.7.0"
+description = "PactKit adapter for OpenAI Codex CLI"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
-    "pyyaml>=6.0",
+    "pactkit>=2.7.0",
 ]
 
 authors = [
@@ -44,29 +44,21 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
-[project.optional-dependencies]
-multilang = [
-    "tree-sitter>=0.25",
-    "tree-sitter-go>=0.25",
-    "tree-sitter-java>=0.23",
-    "tree-sitter-typescript>=0.23",
-]
-
 [project.urls]
-Homepage = "https://github.com/anthropics/pactkit-codex"
-Repository = "https://github.com/anthropics/pactkit-codex"
-Documentation = "https://github.com/anthropics/pactkit-codex#readme"
-Issues = "https://github.com/anthropics/pactkit-codex/issues"
+Homepage = "https://github.com/pactkit/pactkit-codex"
+Repository = "https://github.com/pactkit/pactkit-codex"
+Documentation = "https://github.com/pactkit/pactkit-codex#readme"
+Issues = "https://github.com/pactkit/pactkit-codex/issues"
 
-[project.scripts]
-pactkit-codex = "pactkit_codex.cli:main"
+[project.entry-points."pactkit.deployers"]
+codex = "pactkit_codex:CodexDeployer"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/pactkit_codex"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/unit", "tests/e2e"]
-pythonpath = ["src"]
+testpaths = ["tests"]
+pythonpath = ["src", "../pactkit/src"]
 markers = [
     "e2e: End-to-end CLI tests (subprocess-based)",
     "integration: Integration tests that call deploy() with filesystem I/O",
@@ -80,14 +72,5 @@ line-length = 120
 select = ["E", "F", "I", "W"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/pactkit_codex/prompts/__init__.py" = ["F401"]
-"src/pactkit_codex/prompts/agents.py" = ["E501"]
-"src/pactkit_codex/prompts/commands.py" = ["E501"]
-"src/pactkit_codex/prompts/references.py" = ["E501"]
-"src/pactkit_codex/prompts/rules.py" = ["E501"]
-"src/pactkit_codex/prompts/skills.py" = ["E501"]
-"src/pactkit_codex/prompts/workflows.py" = ["E501"]
-"src/pactkit_codex/generators/deployer.py" = ["E402"]
-"src/pactkit_codex/skills/*.py" = ["E501", "E701", "E702", "E722", "E731", "I001"]
-"src/pactkit_codex/scripts.py" = ["E501"]
+"src/pactkit_codex/deployer.py" = ["E501"]
 "tests/**/*.py" = ["E402", "E501", "E741", "F841", "I001"]

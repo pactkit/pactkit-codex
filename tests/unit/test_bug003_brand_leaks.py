@@ -5,9 +5,9 @@ import pytest
 
 @pytest.fixture()
 def codex_deploy(tmp_path):
-    from pactkit_codex.generators.deployer import _deploy_codex
+    from pactkit_codex.deployer import CodexDeployer
 
-    _deploy_codex(target=str(tmp_path))
+    CodexDeployer().deploy(target=str(tmp_path))
     return tmp_path
 
 

@@ -15,9 +15,9 @@ import pytest
 @pytest.fixture()
 def codex_deploy(tmp_path):
     """Deploy full Codex artifacts to a temp directory."""
-    from pactkit_codex.generators.deployer import _deploy_codex
+    from pactkit_codex.deployer import CodexDeployer
 
-    _deploy_codex(target=str(tmp_path))
+    CodexDeployer().deploy(target=str(tmp_path))
     return tmp_path
 
 
@@ -46,7 +46,7 @@ class TestAC1ArtifactCreation:
 
     def test_10_skill_dirs(self, codex_deploy):
         """R1: 10 skill directories under skills/."""
-        from pactkit_codex.config import VALID_SKILLS
+        from pactkit.config import VALID_SKILLS
 
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
         assert len(skill_dirs) == len(VALID_SKILLS)
