@@ -1,3 +1,5 @@
-"""PactKit Codex - Spec-driven agentic DevOps toolkit for OpenAI Codex CLI."""
+"""PactKit Codex — thin adapter for OpenAI Codex CLI."""
 
-__version__ = "0.2.3"
+from pactkit import __version__  # noqa: F401
+
+from pactkit_codex.deployer import CodexDeployer  # noqa: F401

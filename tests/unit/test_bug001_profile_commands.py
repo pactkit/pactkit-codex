@@ -1,6 +1,6 @@
 """Tests for BUG-001: Codex FormatProfile should mark has_custom_commands=True."""
 
-from pactkit_codex.profiles import get_profile
+from pactkit.profiles import get_profile
 
 
 class TestAC1ProfileMetadata:

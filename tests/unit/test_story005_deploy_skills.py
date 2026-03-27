@@ -36,11 +36,11 @@ class TestDeploySkills:
 
     def _deploy(self, skills_dir):
         """Helper to deploy all skills with codex profile."""
-        from pactkit_codex.generators.deployer import _deploy_skills
-        from pactkit_codex.profiles import get_profile
+        from pactkit_codex.deployer import CodexDeployer
+        from pactkit.profiles import get_profile
 
         profile = get_profile("codex")
-        return _deploy_skills(skills_dir, ALL_SKILLS, profile=profile)
+        return CodexDeployer.deploy_codex_skills(skills_dir, ALL_SKILLS, profile)
 
     def test_ac1_ten_skill_directories(self, skills_dir):
         """AC1: 10 skill subdirectories created."""

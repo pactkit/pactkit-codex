@@ -16,7 +16,7 @@ class TestProjectLevelFiles:
 
     def _generate(self, project_root, pre_create_agents_md=False, pre_create_yaml=False):
         """Helper to generate project files."""
-        from pactkit_codex.generators.deployer import _generate_codex_project_files
+        from pactkit_codex.deployer import CodexDeployer
 
         project_root.mkdir(parents=True, exist_ok=True)
         if pre_create_agents_md:
@@ -25,7 +25,7 @@ class TestProjectLevelFiles:
             codex_dir = project_root / ".codex"
             codex_dir.mkdir(parents=True, exist_ok=True)
             (codex_dir / "pactkit.yaml").write_text("stack: node\nversion: 1.0.0\n")
-        return _generate_codex_project_files(project_root)
+        return CodexDeployer.generate_codex_project_files(project_root)
 
     def test_ac1_fresh_project(self, project_root):
         """AC1: Fresh project gets both AGENTS.md and .codex/pactkit.yaml."""

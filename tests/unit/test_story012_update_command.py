@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pactkit_codex import __version__
+from pactkit import __version__
 
 
 @pytest.fixture
@@ -19,23 +19,23 @@ class TestAC1VersionFileCreatedOnInit:
     """AC1: Version file created on init."""
 
     def test_version_marker_written(self, codex_root):
-        from pactkit_codex.generators.deployer import _deploy_codex
+        from pactkit_codex.deployer import CodexDeployer
 
-        _deploy_codex(target=codex_root)
+        CodexDeployer().deploy(target=codex_root)
 
         version_file = codex_root / ".pactkit-version"
         assert version_file.exists()
         assert version_file.read_text().strip() == __version__
 
     def test_version_marker_updated_on_redeploy(self, codex_root):
-        from pactkit_codex.generators.deployer import _deploy_codex, _write_version_marker
+        from pactkit_codex.deployer import CodexDeployer
 
         # Simulate old version
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
         assert (codex_root / ".pactkit-version").read_text().strip() == "0.0.1"
 
         # Redeploy updates version
-        _deploy_codex(target=codex_root)
+        CodexDeployer().deploy(target=codex_root)
         assert (codex_root / ".pactkit-version").read_text().strip() == __version__
 
 
@@ -43,9 +43,9 @@ class TestAC2UpdateSkipsIfCurrent:
     """AC2: Update skips if current."""
 
     def test_update_skips_when_current(self, codex_root, capsys):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
-        _write_version_marker(codex_root, __version__)
+        CodexDeployer.write_version_marker(codex_root, __version__)
 
         result = update(target=codex_root, force=False, if_needed=False, dry_run=False)
 
@@ -58,10 +58,10 @@ class TestAC3UpdateRegeneratesManagedFiles:
     """AC3: Update regenerates managed files."""
 
     def test_update_regenerates_when_outdated(self, codex_root):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
         # Simulate old version deployed
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
 
         result = update(target=codex_root, force=False, if_needed=False, dry_run=False)
 
@@ -78,12 +78,12 @@ class TestAC4UpdatePreservesUserFiles:
     """AC4: Update preserves user files."""
 
     def test_config_toml_not_overwritten(self, codex_root):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
         # Create user config
         config_toml = codex_root / "config.toml"
         config_toml.write_text('model = "gpt-4o"\nmy_custom_key = "preserved"\n')
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
 
         update(target=codex_root, force=False, if_needed=False, dry_run=False)
 
@@ -92,7 +92,7 @@ class TestAC4UpdatePreservesUserFiles:
         assert "my_custom_key" in content
 
     def test_agents_local_md_not_overwritten(self, tmp_path):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
         codex_root = tmp_path / ".codex"
         codex_root.mkdir(parents=True)
@@ -103,9 +103,9 @@ class TestAC4UpdatePreservesUserFiles:
         local_md.parent.mkdir(parents=True, exist_ok=True)
         local_md.write_text("# My custom instructions\n")
 
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
 
-        with patch("pactkit_codex.generators.deployer.Path.cwd", return_value=project_root):
+        with patch("pactkit_codex.deployer.Path.cwd", return_value=project_root):
             update(target=codex_root, force=False, if_needed=False, dry_run=False)
 
         # User local file preserved
@@ -116,9 +116,9 @@ class TestAC5ForceBypassesVersionCheck:
     """AC5: --force bypasses version check."""
 
     def test_force_regenerates_even_when_current(self, codex_root):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
-        _write_version_marker(codex_root, __version__)
+        CodexDeployer.write_version_marker(codex_root, __version__)
 
         result = update(target=codex_root, force=True, if_needed=False, dry_run=False)
 
@@ -129,9 +129,9 @@ class TestAC6IfNeededSilentWhenCurrent:
     """AC6: --if-needed is silent when current."""
 
     def test_if_needed_no_output_when_current(self, codex_root, capsys):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
-        _write_version_marker(codex_root, __version__)
+        CodexDeployer.write_version_marker(codex_root, __version__)
         capsys.readouterr()  # Clear output from setup
 
         result = update(target=codex_root, force=False, if_needed=True, dry_run=False)
@@ -145,9 +145,9 @@ class TestAC7DryRunShowsPlanWithoutChanges:
     """AC7: --dry-run shows plan without changes."""
 
     def test_dry_run_lists_files(self, codex_root, capsys):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
 
         result = update(target=codex_root, force=False, if_needed=False, dry_run=True)
 
@@ -157,9 +157,9 @@ class TestAC7DryRunShowsPlanWithoutChanges:
         assert "AGENTS.md" in captured.out
 
     def test_dry_run_no_file_changes(self, codex_root):
-        from pactkit_codex.generators.deployer import _write_version_marker, update
+        from pactkit_codex.deployer import CodexDeployer, update
 
-        _write_version_marker(codex_root, "0.0.1")
+        CodexDeployer.write_version_marker(codex_root, "0.0.1")
         # No AGENTS.md yet
         assert not (codex_root / "AGENTS.md").exists()
 
@@ -173,15 +173,12 @@ class TestVersionHelpers:
     """Test version marker helper functions."""
 
     def test_read_deployed_version_returns_none_if_missing(self, codex_root):
-        from pactkit_codex.generators.deployer import _read_deployed_version
+        from pactkit_codex.deployer import CodexDeployer
 
-        assert _read_deployed_version(codex_root) is None
+        assert CodexDeployer.read_deployed_version(codex_root) is None
 
     def test_read_deployed_version_returns_version(self, codex_root):
-        from pactkit_codex.generators.deployer import (
-            _read_deployed_version,
-            _write_version_marker,
-        )
+        from pactkit_codex.deployer import CodexDeployer
 
-        _write_version_marker(codex_root, "1.2.3")
-        assert _read_deployed_version(codex_root) == "1.2.3"
+        CodexDeployer.write_version_marker(codex_root, "1.2.3")
+        assert CodexDeployer.read_deployed_version(codex_root) == "1.2.3"

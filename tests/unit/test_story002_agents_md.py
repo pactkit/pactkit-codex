@@ -16,12 +16,12 @@ class TestGenerateAgentsMd:
 
     def _generate(self, codex_root):
         """Helper to generate AGENTS.md into codex_root."""
-        from pactkit_codex.generators.deployer import _deploy_codex_agents_md
-        from pactkit_codex.profiles import get_profile
+        from pactkit_codex.deployer import CodexDeployer
+        from pactkit.profiles import get_profile
 
         codex_root.mkdir(parents=True, exist_ok=True)
         profile = get_profile("codex")
-        _deploy_codex_agents_md(codex_root, profile)
+        CodexDeployer.deploy_codex_agents_md(codex_root, profile)
         return codex_root / "AGENTS.md"
 
     def test_ac1_agents_md_created(self, codex_root):
