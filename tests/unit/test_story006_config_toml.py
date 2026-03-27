@@ -1,6 +1,9 @@
 """Tests for STORY-006: config.toml Generator for MCP, Sandbox, and Hooks."""
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 import pytest
 
