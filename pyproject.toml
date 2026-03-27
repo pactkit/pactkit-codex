@@ -7,7 +7,7 @@ name = "pactkit-codex"
 version = "2.7.0"
 description = "PactKit adapter for OpenAI Codex CLI"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "pactkit>=2.7.0",
@@ -34,7 +34,6 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
