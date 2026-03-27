@@ -280,6 +280,9 @@ class CodexDeployer(DeployerBase):
             content = CodexDeployer.strip_model_references(content)
             content = content.replace("Agent(model=", "# Agent(model=")
 
+            # Replace CLI commands with direct script invocations
+            content = _replace_cli_with_scripts(content)
+
             # Build SKILL.md with frontmatter + @references + content
             rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["core", "credential"])
             refs = []
@@ -435,6 +438,7 @@ class CodexDeployer(DeployerBase):
 
             from pactkit.generators.deployer import _render_skill_md
             skill_md = _render_skill_md(sd, profile, _prefix)
+            skill_md = _replace_cli_with_scripts(skill_md)
             atomic_write(skill_dir / "SKILL.md", skill_md)
             script_content = sd["script_source"]
             script_content = script_content.replace("~/.claude/", f"{profile.global_config_dir}/")
@@ -450,6 +454,7 @@ class CodexDeployer(DeployerBase):
 
             from pactkit.generators.deployer import _render_skill_md
             skill_md = _render_skill_md(sd, profile, _prefix)
+            skill_md = _replace_cli_with_scripts(skill_md)
             atomic_write(skill_dir / "SKILL.md", skill_md)
             deployed += 1
 
@@ -577,6 +582,40 @@ def _detect_stack(project_root):
     if (project_root / "pom.xml").exists() or (project_root / "build.gradle").exists():
         return "java"
     return "unknown"
+
+
+_VIZ_SCRIPT = "python3 ~/.codex/skills/pactkit-visualize/scripts/visualize.py"
+_BOARD_SCRIPT = "python3 ~/.codex/skills/pactkit-board/scripts/board.py"
+_SCAFFOLD_SCRIPT = "python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py"
+
+# CLI subcommands that map to skill scripts
+_CLI_TO_SCRIPT = [
+    # visualize variants (order matters: longer patterns first)
+    ("Run `pactkit visualize --lazy`", f"Run `{_VIZ_SCRIPT}` (file, `--mode class`, `--mode call` if source changed)"),
+    ("Run `pactkit visualize", f"Run `{_VIZ_SCRIPT}"),
+    ("Run `visualize --focus", f"Run `{_VIZ_SCRIPT} --focus"),
+    ("Run `visualize --mode", f"Run `{_VIZ_SCRIPT} --mode"),
+    ("Run `visualize`", f"Run `{_VIZ_SCRIPT}`"),
+    # board
+    ("Run `python3 ~/.codex/skills/pactkit-board/scripts/board.py", f"Run `{_BOARD_SCRIPT}"),
+    # scaffold
+    ("Run `python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py", f"Run `{_SCAFFOLD_SCRIPT}"),
+    # pactkit CLI → manual fallback hint (for commands without script equivalents)
+    ("Run `pactkit clean`", "Run language-specific cleanup (e.g., `find . -name '__pycache__' -exec rm -rf {} +` for Python)"),
+]
+
+
+def _replace_cli_with_scripts(content):
+    """Replace pactkit CLI and bare visualize commands with direct script paths."""
+    for old, new in _CLI_TO_SCRIPT:
+        content = content.replace(old, new)
+    # Handle backtick-wrapped bare `visualize` in inline references
+    content = re.sub(
+        r'`visualize (--(?:focus|mode|entry))',
+        rf'`{_VIZ_SCRIPT} \1',
+        content,
+    )
+    return content
 
 
 def _write_toml_with_markers(path, data):
