@@ -2,7 +2,7 @@
 # Edit this file to customize which components are deployed.
 # Remove items from a list to disable them. Default: all enabled.
 
-version: "2.7.0"
+version: "2.8.0"
 stack: python
 root: .
 developer: ""
