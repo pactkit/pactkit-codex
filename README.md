@@ -18,8 +18,10 @@
 ## Installation
 
 ```bash
-pip install pactkit-codex
+pip install pactkit
 ```
+
+> `pactkit-codex` is automatically installed as a dependency of `pactkit`.
 
 ## Quick Start
 
@@ -92,20 +94,20 @@ pactkit-codex visualize --lazy        # Generate code dependency graphs
 
 ## PDCA Workflow Commands
 
-Once deployed, use these commands in Codex CLI:
+Once deployed, use these commands in Codex CLI (prefix `$`):
 
 | Command | Phase | Purpose |
 |---------|-------|---------|
-| `/prompts:project-init` | Bootstrap | Initialize project governance |
-| `/prompts:project-design` | Plan | Greenfield product design |
-| `/prompts:project-plan` | Plan | Break down requirements into specs |
-| `/prompts:project-act` | Act | Implement code per spec (TDD) |
-| `/prompts:project-check` | Check | QA verification |
-| `/prompts:project-done` | Done | Finalize and document |
-| `/prompts:project-release` | Done | Version release |
-| `/prompts:project-pr` | Done | Create pull request |
-| `/prompts:project-hotfix` | Act | Quick fix bypass |
-| `/prompts:project-clarify` | Plan | Clarify requirements |
+| `$project-init` | Bootstrap | Initialize project governance |
+| `$project-design` | Plan | Greenfield product design |
+| `$project-plan` | Plan | Break down requirements into specs |
+| `$project-act` | Act | Implement code per spec (TDD) |
+| `$project-check` | Check | QA verification |
+| `$project-done` | Done | Finalize and document |
+| `$project-release` | Done | Version release |
+| `$project-pr` | Done | Create pull request |
+| `$project-hotfix` | Act | Quick fix bypass |
+| `$project-clarify` | Plan | Clarify requirements |
 
 ## Project Structure
 
@@ -136,7 +138,7 @@ This project adapts PactKit for Codex CLI, which has different capabilities:
 | Feature | Claude Code | Codex CLI | pactkit-codex Solution |
 |---------|-------------|-----------|------------------------|
 | Multi-agent | Native | Single agent | Prompt-level role conventions |
-| Custom commands | `/project-*` | `/prompts:*` | Deploy to `~/.codex/prompts/` |
+| Custom commands | `/project-*` | `$project-*` | Deploy to `~/.codex/skills/project-*/SKILL.md` |
 | Rule loading | `@import` | None | Agentic routing (Prerequisites header) |
 | Config | `settings.json` | `config.toml` | Generate with defaults |
 
@@ -192,5 +194,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Related Projects
 
-- [PactKit](https://github.com/pactkit/pactkit) — Original framework for Claude Code
+- [PactKit](https://pactkit.dev) — Core framework
+- [pactkit-opencode](https://github.com/pactkit/pactkit-opencode) — Adapter for OpenCode IDE
 - [Codex CLI](https://github.com/openai/codex) — OpenAI's terminal-based AI coding assistant
