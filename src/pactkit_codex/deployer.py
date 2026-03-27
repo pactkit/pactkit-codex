@@ -13,9 +13,9 @@ Codex-specific features:
 """
 
 import re
-import tomllib
 from pathlib import Path
 
+import tomllib
 from pactkit import __version__, prompts
 from pactkit.config import (
     VALID_SKILLS,
