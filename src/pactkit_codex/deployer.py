@@ -595,22 +595,25 @@ def _write_toml_with_markers(path, data):
             continue
         if key == "mcp_servers":
             lines.append("# [pactkit:managed]")
-            for sub_key, sub_val in sorted(value.items()):
-                lines.append(f"[mcp_servers.{sub_key}]")
-                if isinstance(sub_val, dict):
-                    for k, v in sorted(sub_val.items()):
-                        lines.append(f'{k} = {_toml_value(v)}')
-                else:
-                    lines.append(f'{sub_key} = {_toml_value(sub_val)}')
-                lines.append("")
-        else:
-            lines.append(f"[{key}]")
-            if isinstance(value, dict):
-                for k, v in sorted(value.items()):
-                    lines.append(f'{k} = {_toml_value(v)}')
+        for sub_key, sub_val in sorted(value.items()):
+            quoted_sub = _toml_key(sub_key)
+            if isinstance(sub_val, dict):
+                lines.append(f"[{key}.{quoted_sub}]")
+                for k, v in sorted(sub_val.items()):
+                    lines.append(f'{_toml_key(k)} = {_toml_value(v)}')
+            else:
+                lines.append(f"[{key}]")
+                lines.append(f'{quoted_sub} = {_toml_value(sub_val)}')
             lines.append("")
 
     atomic_write(path, "\n".join(lines) + "\n")
+
+
+def _toml_key(key):
+    """Quote a TOML key if it contains characters outside [A-Za-z0-9_-]."""
+    if re.fullmatch(r'[A-Za-z0-9_-]+', key):
+        return key
+    return f'"{key}"'
 
 
 def _toml_value(value):
