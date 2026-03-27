@@ -1,13 +1,17 @@
-"""Tests for STORY-007: Update Playbook Text Paths for Codex Environment."""
+"""Tests for STORY-007: Update Command Paths for Codex Environment.
+
+Commands are now deployed as skills/{name}/SKILL.md with Codex-specific path
+replacement (~/.claude/ → ~/.codex/).
+"""
 
 import pytest
 
 
 def _apply_codex_path_replacements(content):
-    """Apply the same path replacements that deploy_codex_playbooks uses."""
+    """Apply the same path replacements that deploy_codex_command_skills uses."""
     content = content.replace("~/.claude/skills/", "~/.codex/skills/")
     content = content.replace("~/.claude/rules/", "~/.codex/rules/")
-    content = content.replace("~/.claude/commands/", "~/.codex/prompts/")
+    content = content.replace("~/.claude/commands/", "~/.codex/skills/")
     content = content.replace("~/.claude/", "~/.codex/")
     content = content.replace("~/.config/opencode/", "~/.codex/")
     content = content.replace(".claude/settings.json", ".codex/config.toml")
@@ -15,12 +19,12 @@ def _apply_codex_path_replacements(content):
     return content
 
 
-class TestRenderedCodexPrompts:
+class TestRenderedCodexCommandSkills:
     """AC1, AC3, AC4: Verify rendered output for codex profile is clean."""
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        """Pre-render all command playbooks with codex profile and apply path replacements."""
+        """Pre-render all command skill content with codex profile."""
         from pactkit.generators.deployer import _render_prompt
         from pactkit.prompts.commands import COMMANDS_CONTENT
         from pactkit.profiles import get_profile
@@ -32,12 +36,12 @@ class TestRenderedCodexPrompts:
             self.rendered[filename] = _apply_codex_path_replacements(rendered)
 
     def test_ac1_no_claude_paths_in_rendered(self):
-        """AC1: No ~/.claude/ paths in any rendered codex prompt."""
+        """AC1: No ~/.claude/ paths in any rendered codex command content."""
         for filename, content in self.rendered.items():
             assert "~/.claude/" not in content, f"{filename} contains ~/.claude/"
 
     def test_ac1_no_opencode_paths_in_rendered(self):
-        """AC1: No ~/.config/opencode/ paths in any rendered codex prompt."""
+        """AC1: No ~/.config/opencode/ paths in any rendered codex command content."""
         for filename, content in self.rendered.items():
             assert "~/.config/opencode/" not in content, f"{filename} contains ~/.config/opencode/"
 
@@ -48,11 +52,8 @@ class TestRenderedCodexPrompts:
 
     def test_ac3_skills_paths_resolve_to_codex(self):
         """AC3: Skills paths resolve to ~/.codex/skills in codex profile."""
-        # At least some rendered prompts should contain codex skills path
         all_content = "\n".join(self.rendered.values())
-        # The init playbook sets SKILLS_PATH — after render, should reference codex
         if "skills" in all_content.lower():
-            # Check that no old-format skills paths remain
             assert "~/.claude/skills" not in all_content
             assert "~/.config/opencode/skills" not in all_content
 
@@ -65,7 +66,7 @@ class TestRenderedCodexPrompts:
             assert "claude-opus" not in content_lower, f"{filename} has claude-opus"
 
 
-class TestInitPlaybookCodexBranch:
+class TestInitCommandCodexBranch:
     """AC2, R3, R4, R7: /project-init has Codex environment detection."""
 
     @pytest.fixture(autouse=True)
@@ -79,16 +80,15 @@ class TestInitPlaybookCodexBranch:
         self.init_content = _apply_codex_path_replacements(rendered)
 
     def test_ac2_codex_detection_present(self):
-        """R3: Init playbook includes Codex environment detection."""
+        """R3: Init command includes Codex environment detection."""
         assert "codex" in self.init_content.lower()
 
     def test_ac2_codex_pactkit_yaml_path(self):
-        """R4: Init playbook references .codex/pactkit.yaml."""
+        """R4: Init command references .codex/pactkit.yaml."""
         assert ".codex/pactkit.yaml" in self.init_content or "{PACTKIT_YAML}" not in self.init_content
 
     def test_r7_codex_in_init_guard(self):
         """R7: .codex/ mentioned in init guard or env detection."""
-        # The init playbook should mention codex as a possible environment
         assert "codex" in self.init_content.lower()
 
 
@@ -100,7 +100,6 @@ class TestSourceFileAudit:
         from pactkit.prompts.commands import COMMANDS_CONTENT
         from pactkit.prompts import agents, rules
 
-        # Collect all template strings (the ones that go through _render_prompt)
         templates = {}
         for filename, content in COMMANDS_CONTENT.items():
             templates[f"commands/{filename}"] = content
@@ -114,7 +113,6 @@ class TestSourceFileAudit:
         """AC5: No hardcoded ~/.claude/skills/ in template strings."""
         templates = self._get_prompt_template_content()
         for name, content in templates.items():
-            # Skip rules that legitimately describe the architecture (non-template prose)
             if name == "rules/architecture":
                 continue
             assert "~/.claude/skills/" not in content, f"{name} has hardcoded ~/.claude/skills/"
@@ -128,20 +126,26 @@ class TestSourceFileAudit:
             assert "~/.config/opencode/skills/" not in content, f"{name} has hardcoded opencode skills path"
 
 
-class TestDeployedCodexPromptsClean:
-    """Integration: full deploy pipeline produces clean Codex prompts."""
+class TestDeployedCodexCommandSkillsClean:
+    """Integration: full deploy pipeline produces clean Codex command SKILL.md files."""
 
     def test_full_deploy_no_claude_paths(self, tmp_path):
-        """Full codex deploy: no ~/.claude/ in any prompt file."""
+        """Full codex deploy: no ~/.claude/ in any command SKILL.md file."""
         from pactkit_codex.deployer import CodexDeployer
         from pactkit.profiles import get_profile
 
-        prompts_dir = tmp_path / "prompts"
-        prompts_dir.mkdir()
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
         profile = get_profile("codex")
-        CodexDeployer.deploy_codex_prompts(prompts_dir, profile)
+        CodexDeployer.deploy_codex_command_skills(skills_dir, profile)
 
-        for f in prompts_dir.glob("*.md"):
-            content = f.read_text()
-            assert "~/.claude/" not in content, f"{f.name} has ~/.claude/ after deploy"
-            assert "~/.config/opencode/" not in content, f"{f.name} has opencode path after deploy"
+        for cmd_dir in skills_dir.iterdir():
+            if not cmd_dir.is_dir():
+                continue
+            skill_md = cmd_dir / "SKILL.md"
+            if skill_md.exists():
+                content = skill_md.read_text()
+                assert "~/.claude/" not in content, f"{cmd_dir.name}/SKILL.md has ~/.claude/ after deploy"
+                assert "~/.config/opencode/" not in content, (
+                    f"{cmd_dir.name}/SKILL.md has opencode path after deploy"
+                )

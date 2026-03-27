@@ -21,18 +21,26 @@ class TestAC1AgentsMdClean:
         assert "claude-opus" not in content
 
 
-class TestAC2NoBrandInPrompts:
-    """AC2: No Claude Code brand in prompts."""
+class TestAC2NoBrandInCommandSkills:
+    """AC2: No Claude Code brand in command skill SKILL.md files."""
+
+    def _command_skill_files(self, codex_deploy):
+        """Yield SKILL.md files from command skill dirs (project-* dirs)."""
+        for d in (codex_deploy / "skills").iterdir():
+            if d.is_dir() and d.name.startswith("project-"):
+                skill_md = d / "SKILL.md"
+                if skill_md.exists():
+                    yield skill_md
 
     def test_no_claude_code_brand(self, codex_deploy):
-        for f in (codex_deploy / "prompts").glob("*.md"):
+        for f in self._command_skill_files(codex_deploy):
             content = f.read_text()
-            assert "Claude Code" not in content, f"{f.name} contains 'Claude Code'"
+            assert "Claude Code" not in content, f"{f.parent.name}/SKILL.md contains 'Claude Code'"
 
     def test_no_claude_com_url(self, codex_deploy):
-        for f in (codex_deploy / "prompts").glob("*.md"):
+        for f in self._command_skill_files(codex_deploy):
             content = f.read_text()
-            assert "claude.com" not in content, f"{f.name} contains 'claude.com'"
+            assert "claude.com" not in content, f"{f.parent.name}/SKILL.md contains 'claude.com'"
 
 
 class TestAC3FullTreeClean:

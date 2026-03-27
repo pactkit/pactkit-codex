@@ -12,14 +12,22 @@ def codex_deploy(tmp_path):
 
 
 class TestAC1SprintNotDeployed:
-    """AC1: project-sprint.md not in prompts/, exactly 10 files."""
+    """AC1: project-sprint skill dir not in skills/, exactly 10 command skill dirs."""
 
-    def test_sprint_not_in_prompts(self, codex_deploy):
-        assert not (codex_deploy / "prompts" / "project-sprint.md").exists()
+    def test_sprint_not_in_skills(self, codex_deploy):
+        assert not (codex_deploy / "skills" / "project-sprint").exists()
 
-    def test_exactly_10_prompts(self, codex_deploy):
-        prompts = list((codex_deploy / "prompts").glob("*.md"))
-        assert len(prompts) == 10, f"Expected 10, got {len(prompts)}: {[p.name for p in prompts]}"
+    def test_exactly_10_command_skill_dirs(self, codex_deploy):
+        expected_commands = {
+            "project-init", "project-plan", "project-act",
+            "project-check", "project-done", "project-release",
+            "project-pr", "project-hotfix", "project-design", "project-clarify",
+        }
+        skill_dirs = {d.name for d in (codex_deploy / "skills").iterdir() if d.is_dir()}
+        command_dirs = skill_dirs & expected_commands
+        assert len(command_dirs) == 10, (
+            f"Expected 10 command skill dirs, got {len(command_dirs)}: {command_dirs}"
+        )
 
 
 class TestAC2AgentsMdNoSprint:
@@ -31,10 +39,10 @@ class TestAC2AgentsMdNoSprint:
 
 
 class TestExclusionConstant:
-    """R4: CODEX_EXCLUDED_PROMPTS is a module-level constant."""
+    """R4: CODEX_EXCLUDED_COMMANDS is a module-level constant."""
 
     def test_constant_exists(self):
-        from pactkit_codex.deployer import CODEX_EXCLUDED_PROMPTS
+        from pactkit_codex.deployer import CODEX_EXCLUDED_COMMANDS
 
-        assert isinstance(CODEX_EXCLUDED_PROMPTS, (set, frozenset))
-        assert "project-sprint.md" in CODEX_EXCLUDED_PROMPTS
+        assert isinstance(CODEX_EXCLUDED_COMMANDS, (set, frozenset))
+        assert "project-sprint.md" in CODEX_EXCLUDED_COMMANDS

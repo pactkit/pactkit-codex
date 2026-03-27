@@ -2,7 +2,7 @@
 # Edit this file to customize which components are deployed.
 # Remove items from a list to disable them. Default: all enabled.
 
-version: "2.6.1"
+version: "2.7.0"
 stack: python
 root: .
 developer: ""
@@ -45,6 +45,17 @@ skills:
   - pactkit-status
   - pactkit-trace
   - pactkit-visualize
+  - project-act
+  - project-check
+  - project-clarify
+  - project-design
+  - project-done
+  - project-hotfix
+  - project-init
+  - project-plan
+  - project-pr
+  - project-release
+  - project-sprint
 
 # Rules — constitution modules
 rules:

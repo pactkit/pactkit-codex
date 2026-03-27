@@ -6,8 +6,7 @@ Inherits DeployerBase from pactkit core, contains only Codex-specific logic.
 Codex-specific features:
 - Single-agent AGENTS.md with 10KB budget + truncation
 - config.toml generation/merge (not JSON/YAML)
-- Playbook deployment with prerequisite injection
-- Thin wrapper prompts with description frontmatter
+- All commands deployed as skills/{name}/SKILL.md (unified with Claude Code)
 - Claude→Codex brand replacement (_strip_model_references)
 - Project-level .codex/ structure
 """
@@ -40,34 +39,10 @@ from pactkit.skills import load_script
 from pactkit.utils import atomic_write
 
 # Commands excluded from Codex deployment (require multi-agent capabilities)
-CODEX_EXCLUDED_PROMPTS = frozenset({"project-sprint.md"})
+CODEX_EXCLUDED_COMMANDS = frozenset({"project-sprint.md"})
 
 # Version marker filename (STORY-012)
 VERSION_MARKER_FILE = ".pactkit-version"
-
-# Command descriptions for thin prompts
-_COMMAND_DESCRIPTIONS = {
-    "project-plan": "Analyze requirements and create Spec",
-    "project-act": "Implement code per Spec (TDD)",
-    "project-check": "QA verification and testing",
-    "project-done": "Code cleanup, board update, Git commit",
-    "project-clarify": "Clarify requirements or ask questions",
-    "project-init": "Initialize project governance",
-    "project-release": "Version release: snapshot, archive, Git tag",
-    "project-pr": "Push branch and create pull request",
-    "project-hotfix": "Quick fix bypass (skip TDD)",
-    "project-design": "Greenfield product design and PRD generation",
-}
-
-_ARGUMENT_HINTS = {
-    "project-plan": "feature or change to plan",
-    "project-act": "STORY-NNN",
-    "project-check": "STORY-NNN",
-    "project-done": "STORY-NNN",
-    "project-hotfix": "description of the fix",
-    "project-clarify": "STORY-NNN or question",
-    "project-design": "product idea or MVP description",
-}
 
 _CODEX_PROJECT_AGENTS_MD = """\
 # {project_name}
@@ -104,9 +79,8 @@ class CodexDeployer(DeployerBase):
     This deployment mode generates Codex-native files:
     - AGENTS.md (single-agent, 10KB budget with truncation)
     - rules/ directory with modular rule files (brand-replaced)
-    - prompts/*.md (thin wrappers) + playbooks/*.md (full workflows)
+    - skills/ directory (embedded skills + PDCA command skills)
     - config.toml (not JSON/YAML)
-    - skills/ directory with executable scripts
     """
 
     profile = get_profile("codex")
@@ -118,11 +92,7 @@ class CodexDeployer(DeployerBase):
         print("🚀 PactKit Codex CLI Deployment")
 
         skills_dir = codex_root / "skills"
-        prompts_dir = codex_root / "prompts"
-        playbooks_dir = codex_root / "playbooks"
-
-        for d in [codex_root, skills_dir, prompts_dir, playbooks_dir]:
-            d.mkdir(parents=True, exist_ok=True)
+        skills_dir.mkdir(parents=True, exist_ok=True)
 
         from pactkit.config import find_pactkit_yaml
 
@@ -138,16 +108,20 @@ class CodexDeployer(DeployerBase):
         enabled_skills = cfg.get("skills", sorted(VALID_SKILLS))
 
         n_skills = self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
+        n_commands = self.deploy_codex_command_skills(skills_dir, self.profile)
         _cleanup_legacy(skills_dir)
+        # Clean up legacy prompts/ and playbooks/ directories
+        for legacy_dir in ("prompts", "playbooks"):
+            legacy_path = codex_root / legacy_dir
+            if legacy_path.is_dir():
+                import shutil
+                shutil.rmtree(legacy_path)
 
         rules_dir = codex_root / "rules"
         rules_dir.mkdir(parents=True, exist_ok=True)
         self.deploy_codex_rules(rules_dir, self.profile)
 
         self.deploy_codex_agents_md(codex_root, self.profile)
-
-        self.deploy_codex_playbooks(playbooks_dir, self.profile)
-        n_prompts = self.deploy_codex_prompts(prompts_dir, self.profile)
 
         self.generate_codex_config_toml(codex_root)
 
@@ -157,7 +131,7 @@ class CodexDeployer(DeployerBase):
         self.write_version_marker(codex_root)
 
         print(
-            f"\n✅ Codex CLI: {n_skills} Skills, {n_prompts} Prompts → {codex_root}"
+            f"\n✅ Codex CLI: {n_skills} Skills, {n_commands} Commands → {codex_root}"
         )
 
     # --- Version tracking ---
@@ -273,13 +247,15 @@ class CodexDeployer(DeployerBase):
         atomic_write(codex_root / "AGENTS.md", raw_content)
 
     @staticmethod
-    def deploy_codex_playbooks(playbooks_dir, profile):
-        """Deploy full command playbooks to ~/.codex/playbooks/ (detailed workflows)."""
+    def deploy_codex_command_skills(skills_dir, profile):
+        """Deploy PDCA commands as skills/{name}/SKILL.md (unified with Claude Code)."""
+        deployed = 0
         for filename, raw_content in prompts.COMMANDS_CONTENT.items():
-            if filename in CODEX_EXCLUDED_PROMPTS:
+            if filename in CODEX_EXCLUDED_COMMANDS:
                 continue
             cmd_name = filename.removesuffix(".md")
 
+            # Strip original frontmatter
             content = raw_content
             if content.startswith("---"):
                 parts = content.split("---", 2)
@@ -288,9 +264,10 @@ class CodexDeployer(DeployerBase):
 
             content = _render_prompt(content, profile)
 
+            # Path replacement: Claude/OpenCode → Codex
             content = content.replace("~/.claude/skills/", "~/.codex/skills/")
             content = content.replace("~/.claude/rules/", "~/.codex/rules/")
-            content = content.replace("~/.claude/commands/", "~/.codex/prompts/")
+            content = content.replace("~/.claude/commands/", "~/.codex/skills/")
             content = content.replace("~/.claude/", "~/.codex/")
             content = content.replace("~/.config/opencode/", "~/.codex/")
             content = content.replace(".claude/settings.json", ".codex/config.toml")
@@ -299,30 +276,20 @@ class CodexDeployer(DeployerBase):
             content = CodexDeployer.strip_model_references(content)
             content = content.replace("Agent(model=", "# Agent(model=")
 
-            content = _inject_playbook_prerequisites(
-                content, cmd_name, COMMAND_RULES_MAP, RULES_FILES, CREDENTIAL_SAFETY_FILE
-            )
+            # Inject rule prerequisites as @references
+            rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["core", "credential"])
+            refs = []
+            for key in rule_keys:
+                if key == "credential":
+                    refs.append(f"@~/.codex/rules/{CREDENTIAL_SAFETY_FILE}")
+                elif key in RULES_FILES:
+                    refs.append(f"@~/.codex/rules/{RULES_FILES[key]}")
 
-            atomic_write(playbooks_dir / filename, content)
+            skill_content = "\n".join(refs) + "\n\n" + content
 
-    @staticmethod
-    def deploy_codex_prompts(prompts_dir, profile):
-        """Deploy thin wrapper prompts that point to playbooks."""
-        deployed = 0
-        for filename, _raw_content in prompts.COMMANDS_CONTENT.items():
-            if filename in CODEX_EXCLUDED_PROMPTS:
-                continue
-            cmd_name = filename.removesuffix(".md")
-            description = _COMMAND_DESCRIPTIONS.get(cmd_name, cmd_name)
-
-            fm_lines = [f'description: "{description}"']
-            if cmd_name in _ARGUMENT_HINTS:
-                fm_lines.append(f'argument-hint: "{_ARGUMENT_HINTS[cmd_name]}"')
-
-            content = "---\n" + "\n".join(fm_lines) + "\n---\n"
-            content += f"Read and follow the workflow in `~/.codex/playbooks/{filename}`\n"
-
-            atomic_write(prompts_dir / filename, content)
+            skill_dir = skills_dir / cmd_name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write(skill_dir / "SKILL.md", skill_content)
             deployed += 1
 
         return deployed
@@ -541,7 +508,6 @@ def update(target=None, force=False, if_needed=False, dry_run=False):
         print(f"Would update ({deployed_version or 'none'} → {__version__}):")
         print(f"  {codex_root}/AGENTS.md")
         print(f"  {codex_root}/rules/*.md")
-        print(f"  {codex_root}/prompts/*.md")
         print(f"  {codex_root}/skills/*/")
         print("Preserved (user-owned):")
         print(f"  {codex_root}/config.toml")
@@ -589,26 +555,6 @@ def _truncate_agents_md(content, max_bytes):
     result = before + minimal_agents + "## PDCA Routing Table" + after_parts[1]
     return result
 
-
-def _inject_playbook_prerequisites(content, cmd_name, rules_map, rules_files, credential_file):
-    """Inject Prerequisites section at top of playbook."""
-    rule_keys = rules_map.get(cmd_name, ["core", "credential"])
-
-    rule_lines = []
-    for key in rule_keys:
-        if key == "credential":
-            rule_lines.append(f"- `~/.codex/rules/{credential_file}`")
-        elif key in rules_files:
-            rule_lines.append(f"- `~/.codex/rules/{rules_files[key]}`")
-
-    prereq = (
-        "## Prerequisites — Read These Rules First\n"
-        "Before executing this command, you MUST read the following rule files:\n"
-        + "\n".join(rule_lines)
-        + "\n\n"
-    )
-
-    return prereq + content
 
 
 def _detect_stack(project_root):

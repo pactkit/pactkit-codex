@@ -39,17 +39,27 @@ class TestAC1ArtifactCreation:
     def test_visualize_script_exists(self, codex_deploy):
         assert (codex_deploy / "skills/pactkit-visualize/scripts/visualize.py").is_file()
 
-    def test_10_prompt_files(self, codex_deploy):
-        """R1: One rendered command prompt per registered command (10 — sprint excluded)."""
-        prompts = list((codex_deploy / "prompts").glob("*.md"))
-        assert len(prompts) == 10, f"Expected 10 prompts, got {len(prompts)}: {[p.name for p in prompts]}"
-
-    def test_10_skill_dirs(self, codex_deploy):
-        """R1: 10 embedded skill directories under skills/ (PDCA commands deploy as playbooks, not skills)."""
+    def test_20_skill_dirs(self, codex_deploy):
+        """R1: 20 skill directories under skills/ (10 embedded + 10 PDCA commands, sprint excluded)."""
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
-        # Codex deploys only embedded skills (10), not PDCA command skills (11)
-        # which go to playbooks/ instead. VALID_SKILLS includes both (21).
-        assert len(skill_dirs) == 10
+        assert len(skill_dirs) == 20, (
+            f"Expected 20 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
+        )
+
+    def test_10_command_skill_dirs(self, codex_deploy):
+        """R1: 10 PDCA command skill directories (sprint excluded)."""
+        expected_commands = {
+            "project-init", "project-plan", "project-act",
+            "project-check", "project-done", "project-release",
+            "project-pr", "project-hotfix", "project-design", "project-clarify",
+        }
+        skill_dirs = {d.name for d in (codex_deploy / "skills").iterdir() if d.is_dir()}
+        for cmd in expected_commands:
+            assert cmd in skill_dirs, f"Missing command skill dir: {cmd}"
+
+    def test_no_prompts_directory(self, codex_deploy):
+        """R1: Legacy prompts/ directory is cleaned up — commands are now skills."""
+        assert not (codex_deploy / "prompts").exists(), "Legacy prompts/ directory should not exist"
 
     def test_each_skill_has_skill_md(self, codex_deploy):
         """R1: Every skill directory has a SKILL.md file."""
@@ -134,34 +144,48 @@ class TestAC5SkillExecution:
         )
 
 
-class TestPromptIntegrity:
-    """Additional integrity checks on deployed prompts."""
+class TestCommandSkillIntegrity:
+    """Additional integrity checks on deployed command skills."""
 
-    def test_all_10_commands_present(self, codex_deploy):
-        """All 10 PactKit commands are deployed (sprint excluded)."""
+    def test_all_10_commands_present_as_skills(self, codex_deploy):
+        """All 10 PactKit commands are deployed as skills/ dirs (sprint excluded)."""
         expected = {
-            "project-init.md", "project-plan.md", "project-act.md",
-            "project-check.md", "project-done.md", "project-release.md",
-            "project-pr.md", "project-hotfix.md",
-            "project-design.md", "project-clarify.md",
+            "project-init", "project-plan", "project-act",
+            "project-check", "project-done", "project-release",
+            "project-pr", "project-hotfix",
+            "project-design", "project-clarify",
         }
-        actual = {f.name for f in (codex_deploy / "prompts").glob("*.md")}
-        assert actual == expected, f"Missing: {expected - actual}, Extra: {actual - expected}"
+        skill_dirs = {d.name for d in (codex_deploy / "skills").iterdir() if d.is_dir()}
+        assert expected.issubset(skill_dirs), (
+            f"Missing command skills: {expected - skill_dirs}"
+        )
 
-    def test_prompts_have_frontmatter(self, codex_deploy):
-        """Each prompt file starts with YAML frontmatter."""
-        for f in (codex_deploy / "prompts").glob("*.md"):
-            content = f.read_text()
-            assert content.startswith("---"), f"{f.name} missing frontmatter"
-            # Must have closing ---
-            second_fence = content.index("---", 3)
-            assert second_fence > 3, f"{f.name} has no closing frontmatter fence"
+    def test_sprint_not_in_skills(self, codex_deploy):
+        """project-sprint must not be deployed as a skill."""
+        assert not (codex_deploy / "skills" / "project-sprint").exists()
 
-    def test_prompts_no_allowed_tools(self, codex_deploy):
-        """Codex prompts must not have allowed-tools (Claude-specific)."""
-        for f in (codex_deploy / "prompts").glob("*.md"):
-            content = f.read_text()
-            assert "allowed-tools:" not in content, f"{f.name} still has allowed-tools"
+    def test_command_skills_have_skill_md(self, codex_deploy):
+        """Each command skill directory has a SKILL.md file."""
+        expected_commands = {
+            "project-init", "project-plan", "project-act",
+            "project-check", "project-done", "project-release",
+            "project-pr", "project-hotfix", "project-design", "project-clarify",
+        }
+        for cmd in expected_commands:
+            skill_md = codex_deploy / "skills" / cmd / "SKILL.md"
+            assert skill_md.is_file(), f"{cmd}/SKILL.md missing"
+
+    def test_command_skills_have_rules_references(self, codex_deploy):
+        """Each command SKILL.md has @~/.codex/rules/ references at the top."""
+        expected_commands = {
+            "project-init", "project-plan", "project-act",
+            "project-check", "project-done", "project-release",
+            "project-pr", "project-hotfix", "project-design", "project-clarify",
+        }
+        for cmd in expected_commands:
+            skill_md = codex_deploy / "skills" / cmd / "SKILL.md"
+            content = skill_md.read_text()
+            assert "@~/.codex/rules/" in content, f"{cmd}/SKILL.md missing @~/.codex/rules/ references"
 
     def test_agents_md_under_20kb(self, codex_deploy):
         """AGENTS.md must be under 20KB budget."""

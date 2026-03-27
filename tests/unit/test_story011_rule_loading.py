@@ -58,35 +58,33 @@ class TestAC1RulesDeployedAsFiles:
             assert "claude-opus" not in content, f"{md_file.name} has model ref"
 
 
-class TestAC2PlaybooksIncludePrerequisites:
-    """AC2: Deployed playbooks include rule prerequisites section."""
+class TestAC2CommandSkillsIncludeRuleRefs:
+    """AC2: Deployed command SKILL.md files include @~/.codex/rules/ references."""
 
-    def test_project_act_has_prerequisites(self, codex_root, codex_profile):
-        playbooks_dir = codex_root / "playbooks"
-        playbooks_dir.mkdir(parents=True, exist_ok=True)
-        CodexDeployer.deploy_codex_playbooks(playbooks_dir, codex_profile)
+    def test_project_act_has_rule_refs(self, codex_root, codex_profile):
+        skills_dir = codex_root / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        CodexDeployer.deploy_codex_command_skills(skills_dir, codex_profile)
 
-        act_file = playbooks_dir / "project-act.md"
-        assert act_file.exists()
-        content = act_file.read_text()
-        assert "Prerequisites" in content
-        assert "01-core-protocol.md" in content
-        assert "08-architecture-principles.md" in content
+        act_skill = skills_dir / "project-act" / "SKILL.md"
+        assert act_skill.exists()
+        content = act_skill.read_text()
+        assert "@~/.codex/rules/01-core-protocol.md" in content
+        assert "@~/.codex/rules/08-architecture-principles.md" in content
 
-    def test_project_clarify_minimal_rules(self, codex_root, codex_profile):
-        """project-clarify only needs core + credential."""
-        playbooks_dir = codex_root / "playbooks"
-        playbooks_dir.mkdir(parents=True, exist_ok=True)
-        CodexDeployer.deploy_codex_playbooks(playbooks_dir, codex_profile)
+    def test_project_clarify_minimal_rule_refs(self, codex_root, codex_profile):
+        """project-clarify only needs core + credential references."""
+        skills_dir = codex_root / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        CodexDeployer.deploy_codex_command_skills(skills_dir, codex_profile)
 
-        clarify = playbooks_dir / "project-clarify.md"
-        assert clarify.exists()
-        content = clarify.read_text()
-        assert "Prerequisites" in content
-        assert "01-core-protocol.md" in content
-        assert CREDENTIAL_SAFETY_FILE in content
-        # Should NOT have architecture or workflow rules
-        assert "08-architecture-principles.md" not in content
+        clarify_skill = skills_dir / "project-clarify" / "SKILL.md"
+        assert clarify_skill.exists()
+        content = clarify_skill.read_text()
+        assert "@~/.codex/rules/01-core-protocol.md" in content
+        assert f"@~/.codex/rules/{CREDENTIAL_SAFETY_FILE}" in content
+        # Should NOT have architecture rules
+        assert "@~/.codex/rules/08-architecture-principles.md" not in content
 
 
 class TestAC3NoInlineRulesInAgentsMd:
@@ -120,18 +118,22 @@ class TestAC4AgentsMdSizeBudget:
 
 
 class TestAC5CredentialSafetyInEveryCommand:
-    """AC5: Every deployed playbook references 09-credential-safety.md."""
+    """AC5: Every deployed command SKILL.md references 09-credential-safety.md."""
 
-    def test_all_playbooks_have_credential_rule(self, codex_root, codex_profile):
-        playbooks_dir = codex_root / "playbooks"
-        playbooks_dir.mkdir(parents=True, exist_ok=True)
-        CodexDeployer.deploy_codex_playbooks(playbooks_dir, codex_profile)
+    def test_all_command_skills_have_credential_rule(self, codex_root, codex_profile):
+        skills_dir = codex_root / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        CodexDeployer.deploy_codex_command_skills(skills_dir, codex_profile)
 
-        for md_file in playbooks_dir.glob("*.md"):
-            content = md_file.read_text()
-            assert CREDENTIAL_SAFETY_FILE in content, (
-                f"{md_file.name} missing credential safety rule"
-            )
+        for cmd_dir in skills_dir.iterdir():
+            if not cmd_dir.is_dir():
+                continue
+            skill_md = cmd_dir / "SKILL.md"
+            if skill_md.exists():
+                content = skill_md.read_text()
+                assert CREDENTIAL_SAFETY_FILE in content, (
+                    f"{cmd_dir.name}/SKILL.md missing credential safety rule"
+                )
 
 
 class TestRulesMapConsistency:

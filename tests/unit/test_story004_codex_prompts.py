@@ -1,114 +1,120 @@
-"""Tests for STORY-004: Convert 11 Command Playbooks to Codex Prompts."""
+"""Tests for STORY-004: Deploy PDCA Commands as Codex Skills.
 
+Tests that deploy_codex_command_skills() creates 10 command skill dirs,
+each with a SKILL.md containing @~/.codex/rules/ references, no Claude
+paths, and no Anthropic model names.
+"""
 
 import pytest
-import yaml
 
 
 @pytest.fixture
-def prompts_dir(tmp_path):
-    """Temporary prompts directory."""
-    d = tmp_path / "prompts"
+def skills_dir(tmp_path):
+    """Temporary skills directory."""
+    d = tmp_path / "skills"
     d.mkdir()
     return d
 
 
-EXPECTED_FILES = [
-    "project-init.md",
-    "project-plan.md",
-    "project-act.md",
-    "project-check.md",
-    "project-done.md",
-    "project-hotfix.md",
-    "project-design.md",
-    "project-clarify.md",
-    "project-release.md",
-    "project-pr.md",
-    # project-sprint.md excluded — requires multi-agent (BUG-002)
+EXPECTED_COMMANDS = [
+    "project-init",
+    "project-plan",
+    "project-act",
+    "project-check",
+    "project-done",
+    "project-hotfix",
+    "project-design",
+    "project-clarify",
+    "project-release",
+    "project-pr",
+    # project-sprint excluded — requires multi-agent (BUG-002)
 ]
 
 ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
 
 
-class TestCodexPrompts:
-    """AC1-AC7: Convert command playbooks to Codex prompts."""
+class TestCodexCommandSkills:
+    """AC1-AC7: Deploy command playbooks as Codex skill dirs."""
 
-    def _deploy(self, prompts_dir):
-        """Helper to deploy prompts."""
+    def _deploy(self, skills_dir):
+        """Helper to deploy command skills."""
         from pactkit_codex.deployer import CodexDeployer
         from pactkit.profiles import get_profile
 
         profile = get_profile("codex")
-        return CodexDeployer.deploy_codex_prompts(prompts_dir, profile)
+        return CodexDeployer.deploy_codex_command_skills(skills_dir, profile)
 
-    def test_ac1_all_10_files_present(self, prompts_dir):
-        """AC1: All 10 prompt files are present (sprint excluded)."""
-        count = self._deploy(prompts_dir)
+    def test_ac1_all_10_skill_dirs_present(self, skills_dir):
+        """AC1: All 10 command skill dirs are present (sprint excluded)."""
+        count = self._deploy(skills_dir)
         assert count == 10
-        for filename in EXPECTED_FILES:
-            assert (prompts_dir / filename).exists(), f"Missing: {filename}"
+        for cmd in EXPECTED_COMMANDS:
+            assert (skills_dir / cmd).is_dir(), f"Missing skill dir: {cmd}"
 
-    def test_ac1_only_expected_files(self, prompts_dir):
-        """AC1: No extra files beyond the 10."""
-        self._deploy(prompts_dir)
-        files = sorted(f.name for f in prompts_dir.glob("*.md"))
-        assert files == sorted(EXPECTED_FILES)
+    def test_ac1_only_expected_dirs(self, skills_dir):
+        """AC1: No extra command dirs beyond the 10."""
+        self._deploy(skills_dir)
+        dirs = sorted(d.name for d in skills_dir.iterdir() if d.is_dir())
+        assert dirs == sorted(EXPECTED_COMMANDS)
 
-    def test_ac2_frontmatter_codex_compatible(self, prompts_dir):
-        """AC2: description present, no allowed-tools, argument-hint where needed."""
-        self._deploy(prompts_dir)
-        for filename in EXPECTED_FILES:
-            content = (prompts_dir / filename).read_text()
-            assert content.startswith("---"), f"{filename} missing frontmatter"
-            # Parse frontmatter
-            parts = content.split("---", 2)
-            assert len(parts) >= 3, f"{filename} malformed frontmatter"
-            fm = yaml.safe_load(parts[1])
-            assert "description" in fm, f"{filename} missing description"
-            assert "allowed-tools" not in fm, f"{filename} has allowed-tools"
+    def test_ac1_each_dir_has_skill_md(self, skills_dir):
+        """AC1: Every command skill dir has a SKILL.md file."""
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            assert (skills_dir / cmd / "SKILL.md").is_file(), f"{cmd}/SKILL.md missing"
 
-            cmd = filename.removesuffix(".md")
-            if cmd in ARGUMENT_COMMANDS:
-                assert "argument-hint" in fm, f"{filename} missing argument-hint"
+    def test_ac2_rules_references_present(self, skills_dir):
+        """AC2: Each SKILL.md has @~/.codex/rules/ references at the top."""
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
+            assert "@~/.codex/rules/" in content, f"{cmd}/SKILL.md missing @~/.codex/rules/ references"
 
-    def test_ac3_no_claude_paths(self, prompts_dir):
+    def test_ac3_no_claude_paths(self, skills_dir):
         """AC3: No ~/.claude/ paths remain."""
-        self._deploy(prompts_dir)
-        for filename in EXPECTED_FILES:
-            content = (prompts_dir / filename).read_text()
-            assert "~/.claude/" not in content, f"{filename} contains ~/.claude/"
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
+            assert "~/.claude/" not in content, f"{cmd}/SKILL.md contains ~/.claude/"
 
-    def test_ac4_no_anthropic_model_names(self, prompts_dir):
+    def test_ac4_no_anthropic_model_names(self, skills_dir):
         """AC4: No Anthropic model names remain."""
-        self._deploy(prompts_dir)
-        for filename in EXPECTED_FILES:
-            content = (prompts_dir / filename).read_text()
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
             content_lower = content.lower()
-            # Check for claude model patterns, but skip the word "claude" when
-            # it's part of file names like "CLAUDE.md" or "CLAUDE.local.md"
-            assert "claude-sonnet" not in content_lower, f"{filename} has claude-sonnet"
-            assert "claude-haiku" not in content_lower, f"{filename} has claude-haiku"
-            assert "claude-opus" not in content_lower, f"{filename} has claude-opus"
+            assert "claude-sonnet" not in content_lower, f"{cmd}/SKILL.md has claude-sonnet"
+            assert "claude-haiku" not in content_lower, f"{cmd}/SKILL.md has claude-haiku"
+            assert "claude-opus" not in content_lower, f"{cmd}/SKILL.md has claude-opus"
 
-    def test_ac5_skills_paths_codex(self, prompts_dir):
-        """AC5: Skills paths point to Codex location."""
-        self._deploy(prompts_dir)
-        for filename in EXPECTED_FILES:
-            content = (prompts_dir / filename).read_text()
+    def test_ac5_codex_paths_in_skills(self, skills_dir):
+        """AC5: Skills paths point to Codex location (~/.codex/)."""
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
             if "~/.claude/skills/" in content:
-                pytest.fail(f"{filename} still has ~/.claude/skills/")
+                pytest.fail(f"{cmd}/SKILL.md still has ~/.claude/skills/")
 
-    def test_ac6_no_allowed_tools_anywhere(self, prompts_dir):
-        """AC6: No allowed-tools field in any file."""
-        self._deploy(prompts_dir)
+    def test_ac6_no_allowed_tools_anywhere(self, skills_dir):
+        """AC6: No allowed-tools field in any SKILL.md file."""
+        self._deploy(skills_dir)
         all_content = ""
-        for filename in EXPECTED_FILES:
-            all_content += (prompts_dir / filename).read_text()
+        for cmd in EXPECTED_COMMANDS:
+            all_content += (skills_dir / cmd / "SKILL.md").read_text()
         assert "allowed-tools:" not in all_content
 
-    def test_ac7_no_multiagent_spawning(self, prompts_dir):
+    def test_ac7_no_multiagent_spawning(self, skills_dir):
         """AC7: No multi-agent spawning syntax."""
-        self._deploy(prompts_dir)
-        for filename in EXPECTED_FILES:
-            content = (prompts_dir / filename).read_text()
-            assert "Agent(model=" not in content, f"{filename} has Agent(model="
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
+            assert "Agent(model=" not in content, f"{cmd}/SKILL.md has Agent(model="
+
+    def test_credential_rule_in_every_command(self, skills_dir):
+        """Each command SKILL.md references the credential safety rule."""
+        self._deploy(skills_dir)
+        for cmd in EXPECTED_COMMANDS:
+            content = (skills_dir / cmd / "SKILL.md").read_text()
+            assert "09-credential-safety.md" in content, (
+                f"{cmd}/SKILL.md missing credential safety rule reference"
+            )

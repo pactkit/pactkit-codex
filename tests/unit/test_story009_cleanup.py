@@ -35,8 +35,10 @@ class TestAC4CodexTestsStillPass:
         CodexDeployer().deploy(target=str(tmp_path))
         assert (tmp_path / "AGENTS.md").is_file()
         assert (tmp_path / "config.toml").is_file()
-        assert len(list((tmp_path / "prompts").glob("*.md"))) == 10
-        assert len([d for d in (tmp_path / "skills").iterdir() if d.is_dir()]) == 10
+        # 10 embedded skills + 10 PDCA command skills (sprint excluded) = 20 total
+        assert len([d for d in (tmp_path / "skills").iterdir() if d.is_dir()]) == 20
+        # No legacy prompts/ directory (commands now deployed as skills)
+        assert not (tmp_path / "prompts").exists()
 
 
 class TestAC5DeployerSmaller:
