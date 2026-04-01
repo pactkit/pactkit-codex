@@ -162,6 +162,7 @@ class CodexDeployer(DeployerBase):
             if not content:
                 continue
             content = content.strip()
+            content = _render_prompt(content, profile)
             content = CodexDeployer.strip_model_selection_table(content)
             for pattern in CLAUDE_PATH_PATTERNS:
                 content = content.replace(pattern, "~/.codex/")
