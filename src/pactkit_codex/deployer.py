@@ -166,6 +166,7 @@ class CodexDeployer(DeployerBase):
             for pattern in CLAUDE_PATH_PATTERNS:
                 content = content.replace(pattern, "~/.codex/")
             content = CodexDeployer.strip_model_references(content)
+            content = DeployerBase.strip_excluded_command_references(content, profile)
             atomic_write(rules_dir / filename, content + "\n")
 
         cred_path = rules_dir / CREDENTIAL_SAFETY_FILE
