@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pactkit-codex"
-version = "2.10.2"
+version = "2.11.0"
 description = "PactKit adapter for OpenAI Codex CLI"
 readme = "README.md"
 license = {text = "MIT"}
