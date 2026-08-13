@@ -1,4 +1,9 @@
-"""Tests for STORY-006: config.toml Generator for MCP, Sandbox, and Hooks."""
+"""Tests for STORY-006: config.toml Generator for MCP, Sandbox, and Hooks.
+
+2026-08-13 policy change (user directive after two wipe incidents):
+an existing config.toml is NEVER modified — PactKit only creates the file
+when absent. Older merge/additive tests were replaced accordingly.
+"""
 
 try:
     import tomllib
@@ -17,7 +22,7 @@ def codex_root(tmp_path):
 
 
 class TestConfigToml:
-    """AC1-AC5: config.toml generation for Codex CLI."""
+    """AC1-AC5: config.toml creation for Codex CLI (file absent case)."""
 
     def _generate(self, codex_root):
         """Helper to generate config.toml."""
@@ -36,18 +41,6 @@ class TestConfigToml:
         assert "approval_policy" in data
         assert "mcp_servers" in data
         assert "context7" in data["mcp_servers"]
-
-    def test_ac2_user_model_preserved_on_update(self, codex_root):
-        """AC2: User's model choice is preserved on update."""
-        config_path = codex_root / "config.toml"
-        config_path.write_text('model = "gpt-4o"\n')
-
-        from pactkit_codex.deployer import CodexDeployer
-
-        CodexDeployer.generate_codex_config_toml(codex_root)
-        data = tomllib.loads(config_path.read_text())
-        assert data["model"] == "gpt-4o"  # User value preserved
-        assert "mcp_servers" in data  # MCP added
 
     def test_ac3_valid_toml(self, codex_root):
         """AC3: Output is valid TOML."""
@@ -79,25 +72,6 @@ class TestConfigToml:
         assert data["sandbox_mode"] == "workspace-write"
         assert data["approval_policy"] == "on-request"
 
-    def test_r4_merge_preserves_user_keys(self, codex_root):
-        """R4: Merge is additive-only for user fields."""
-        config_path = codex_root / "config.toml"
-        config_path.write_text(
-            'model = "gpt-4o"\n'
-            'my_custom_key = "preserved"\n'
-            'approval_policy = "auto-edit"\n'
-        )
-
-        from pactkit_codex.deployer import CodexDeployer
-
-        CodexDeployer.generate_codex_config_toml(codex_root)
-        data = tomllib.loads(config_path.read_text())
-        assert data["model"] == "gpt-4o"
-        assert data["my_custom_key"] == "preserved"
-        assert data["approval_policy"] == "auto-edit"
-        # Missing keys added
-        assert data["sandbox_mode"] == "workspace-write"
-
     def test_r6_pactkit_managed_markers(self, codex_root):
         """R6: PactKit-managed comment markers present."""
         config_path = self._generate(codex_root)
@@ -105,15 +79,15 @@ class TestConfigToml:
         assert "[pactkit:managed]" in content
 
 
-class TestAppendOnlyMerge:
-    """BUG 2026-08-13: the old parse-and-rewrite writer stringified TOML
-    arrays and dropped comments. The merge must be strictly append-only."""
+class TestNeverTouchExisting:
+    """2026-08-13 user directive after two wipe incidents: an existing
+    config.toml must stay byte-identical no matter what it contains."""
 
-    def test_arrays_and_comments_preserved(self, codex_root):
+    def test_existing_file_byte_identical(self, codex_root):
         config_path = codex_root / "config.toml"
         original = (
             '# my hand-written config\n'
-            'model = "gpt-5"\n'
+            'model = "gpt-5.6-sol"\n'
             '\n'
             '[mcp_servers.playwright]\n'
             'args = ["--yes", "@playwright/mcp@latest", "--headless"]\n'
@@ -124,38 +98,33 @@ class TestAppendOnlyMerge:
         from pactkit_codex.deployer import CodexDeployer
 
         CodexDeployer.generate_codex_config_toml(codex_root)
-        content = config_path.read_text()
-        # original content survives byte-for-byte at the top of the file
-        assert content.startswith(original)
-        # array is still an array after parsing
-        import tomllib
-        data = tomllib.loads(content)
-        assert data["mcp_servers"]["playwright"]["args"] == ["--yes", "@playwright/mcp@latest", "--headless"]
+        assert config_path.read_text() == original  # byte-identical
 
-    def test_nothing_missing_means_untouched(self, codex_root):
+    def test_user_model_and_custom_keys_untouched(self, codex_root):
+        """Former R4 merge test: user values are preserved by not writing at all."""
         config_path = codex_root / "config.toml"
-        original = (
-            'sandbox_mode = "workspace-write"\n'
-            'approval_policy = "on-request"\n'
-            '\n'
-            '[mcp_servers.context7]\n'
-            'url = "https://mcp.context7.com/mcp"\n'
-        )
+        original = 'model = "gpt-4o"\nmy_custom_key = "preserved"\napproval_policy = "auto-edit"\n'
         config_path.write_text(original)
 
         from pactkit_codex.deployer import CodexDeployer
 
         CodexDeployer.generate_codex_config_toml(codex_root)
-        assert config_path.read_text() == original  # byte-identical
+        assert config_path.read_text() == original
 
-    def test_missing_keys_appended_not_merged(self, codex_root):
+    def test_unparsable_file_untouched(self, codex_root):
         config_path = codex_root / "config.toml"
-        config_path.write_text('model = "gpt-5"\n')
+        config_path.write_text("this is = not [ valid toml")
 
         from pactkit_codex.deployer import CodexDeployer
 
         CodexDeployer.generate_codex_config_toml(codex_root)
-        content = config_path.read_text()
-        assert content.startswith('model = "gpt-5"\n')
-        assert 'sandbox_mode = "workspace-write"' in content
+        assert config_path.read_text() == "this is = not [ valid toml"
+
+    def test_missing_file_created_with_managed_sections(self, codex_root):
+        from pactkit_codex.deployer import CodexDeployer
+
+        CodexDeployer.generate_codex_config_toml(codex_root)
+        content = (codex_root / "config.toml").read_text()
         assert "[pactkit:managed]" in content
+        assert 'sandbox_mode = "workspace-write"' in content
+        assert "[mcp_servers.context7]" in content

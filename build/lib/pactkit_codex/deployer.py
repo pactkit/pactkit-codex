@@ -311,32 +311,60 @@ class CodexDeployer(DeployerBase):
 
     @staticmethod
     def generate_codex_config_toml(codex_root):
-        """Create config.toml for Codex CLI — but NEVER modify an existing one.
+        """Create or extend config.toml for Codex CLI — strictly append-only.
 
-        config.toml carries the user's providers, MCP servers, project trust
-        and other sensitive state. PactKit's share is two scalar defaults and
-        one MCP entry — not worth any write risk. Policy (2026-08-13, user
-        directive after two wipe incidents):
-          - File exists  -> leave it BYTE-IDENTICAL, print the recommended
-            settings for the user to add by hand.
-          - File missing -> create it with the PactKit-managed sections.
+        R1: Create with PactKit-managed sections if absent.
+        R4: Only ADD missing keys/sections; existing content is never
+            re-serialized, reordered, or deleted (BUG 2026-08-13: the old
+            parse-and-rewrite via _write_toml_with_markers stringified TOML
+            arrays — e.g. mcp_servers.playwright args — and dropped comments).
+        R5: Never write API keys or secrets (we only ever write our own
+            constant defaults, never user content).
+        R6: Mark appended sections with [pactkit:managed] comments.
         """
         config_path = codex_root / "config.toml"
 
-        if config_path.exists():
-            print("  ℹ️ config.toml exists — left untouched (PactKit never modifies it)")
+        pactkit_defaults = {
+            "sandbox_mode": "workspace-write",
+            "approval_policy": "on-request",
+        }
+        pactkit_mcp = {
+            "context7": {"url": "https://mcp.context7.com/mcp"},
+        }
+
+        if not config_path.exists():
+            lines = ["# [pactkit:managed]"]
+            for key, value in pactkit_defaults.items():
+                lines.append(f"{key} = {_toml_value(value)}")
+            for name, cfg in pactkit_mcp.items():
+                lines += ["", "# [pactkit:managed]", f"[mcp_servers.{name}]"]
+                lines += [f"{k} = {_toml_value(v)}" for k, v in cfg.items()]
+            atomic_write(config_path, chr(10).join(lines) + chr(10))
             return
 
-        lines = [
-            "# [pactkit:managed]",
-            'sandbox_mode = "workspace-write"',
-            'approval_policy = "on-request"',
-            "",
-            "# [pactkit:managed]",
-            "[mcp_servers.context7]",
-            'url = "https://mcp.context7.com/mcp"',
-        ]
-        atomic_write(config_path, chr(10).join(lines) + chr(10))
+        try:
+            existing = tomllib.loads(config_path.read_text())
+        except Exception:
+            # Unparsable user config — do NOT touch it at all
+            print("  ⚠️ config.toml unparsable — leaving it untouched")
+            return
+
+        missing_top = {k: v for k, v in pactkit_defaults.items() if k not in existing}
+        mcp = existing.get("mcp_servers", {})
+        missing_mcp = {k: v for k, v in pactkit_mcp.items() if k not in mcp}
+        if not missing_top and not missing_mcp:
+            return  # nothing to add — file stays byte-identical
+
+        lines = []
+        if missing_top:
+            lines.append("# [pactkit:managed]")
+            lines += [f"{k} = {_toml_value(v)}" for k, v in missing_top.items()]
+        for name, cfg in missing_mcp.items():
+            lines += ["", "# [pactkit:managed]", f"[mcp_servers.{name}]"]
+            lines += [f"{k} = {_toml_value(v)}" for k, v in cfg.items()]
+
+        with open(config_path, "a", encoding="utf-8") as f:
+            f.write(chr(10) + chr(10).join(lines) + chr(10))
 
     @staticmethod
     def generate_codex_project_files(project_root):
