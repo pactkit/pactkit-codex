@@ -14,10 +14,6 @@ Codex-specific features:
 import re
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # Python 3.10 fallback
 from pactkit import __version__, prompts
 from pactkit.config import (
     VALID_SKILLS,
