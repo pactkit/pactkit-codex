@@ -69,8 +69,8 @@ class TestAC2CommandSkillsIncludeRuleRefs:
         act_skill = skills_dir / "project-act" / "SKILL.md"
         assert act_skill.exists()
         content = act_skill.read_text()
-        assert "@~/.codex/rules/01-core-protocol.md" in content
-        assert "@~/.codex/rules/08-architecture-principles.md" in content
+        assert "@~/.codex/rules/pactkit.md" in content
+        assert "@~/.codex/rules/02-mcp-integration.md" in content
 
     def test_project_clarify_minimal_rule_refs(self, codex_root, codex_profile):
         """project-clarify only needs core + credential references."""
@@ -81,10 +81,10 @@ class TestAC2CommandSkillsIncludeRuleRefs:
         clarify_skill = skills_dir / "project-clarify" / "SKILL.md"
         assert clarify_skill.exists()
         content = clarify_skill.read_text()
-        assert "@~/.codex/rules/01-core-protocol.md" in content
+        assert "@~/.codex/rules/pactkit.md" in content
         assert f"@~/.codex/rules/{CREDENTIAL_SAFETY_FILE}" in content
         # Should NOT have architecture rules
-        assert "@~/.codex/rules/08-architecture-principles.md" not in content
+        assert "@~/.codex/rules/04-architecture-principles.md" not in content
 
 
 class TestAC3NoInlineRulesInAgentsMd:

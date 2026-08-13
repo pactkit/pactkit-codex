@@ -40,18 +40,19 @@ class TestAC1ArtifactCreation:
         assert (codex_deploy / "skills/pactkit-visualize/scripts/visualize.py").is_file()
 
     def test_20_skill_dirs(self, codex_deploy):
-        """R1: 20 skill directories under skills/ (10 embedded + 10 PDCA commands, sprint excluded)."""
+        """R1: 24 skill directories under skills/ (13 embedded + 11 PDCA commands, sprint excluded)."""
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
-        assert len(skill_dirs) == 20, (
-            f"Expected 20 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
+        assert len(skill_dirs) == 24, (
+            f"Expected 24 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
         )
 
     def test_10_command_skill_dirs(self, codex_deploy):
-        """R1: 10 PDCA command skill directories (sprint excluded)."""
+        """R1: 11 PDCA command skill directories (sprint excluded)."""
         expected_commands = {
             "project-init", "project-plan", "project-act",
             "project-check", "project-done", "project-release",
             "project-pr", "project-hotfix", "project-design", "project-clarify",
+            "project-debug",
         }
         skill_dirs = {d.name for d in (codex_deploy / "skills").iterdir() if d.is_dir()}
         for cmd in expected_commands:

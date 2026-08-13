@@ -27,6 +27,7 @@ EXPECTED_COMMANDS = [
     "project-clarify",
     "project-release",
     "project-pr",
+    "project-debug",
     # project-sprint excluded — requires multi-agent (BUG-002)
 ]
 
@@ -44,15 +45,15 @@ class TestCodexCommandSkills:
         profile = get_profile("codex")
         return CodexDeployer.deploy_codex_command_skills(skills_dir, profile)
 
-    def test_ac1_all_10_skill_dirs_present(self, skills_dir):
-        """AC1: All 10 command skill dirs are present (sprint excluded)."""
+    def test_ac1_all_11_skill_dirs_present(self, skills_dir):
+        """AC1: All 11 command skill dirs are present (sprint excluded; debug added slim-133)."""
         count = self._deploy(skills_dir)
-        assert count == 10
+        assert count == 11
         for cmd in EXPECTED_COMMANDS:
             assert (skills_dir / cmd).is_dir(), f"Missing skill dir: {cmd}"
 
     def test_ac1_only_expected_dirs(self, skills_dir):
-        """AC1: No extra command dirs beyond the 10."""
+        """AC1: No extra command dirs beyond the 11."""
         self._deploy(skills_dir)
         dirs = sorted(d.name for d in skills_dir.iterdir() if d.is_dir())
         assert dirs == sorted(EXPECTED_COMMANDS)

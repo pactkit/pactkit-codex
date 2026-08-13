@@ -291,7 +291,7 @@ class CodexDeployer(DeployerBase):
             content = _replace_cli_with_scripts(content)
 
             # Build SKILL.md with frontmatter + @references + content
-            rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["core", "credential"])
+            rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["pactkit", "credential"])
             refs = []
             for key in rule_keys:
                 if key == "credential":
@@ -431,6 +431,7 @@ class CodexDeployer(DeployerBase):
 
             skill_md = _render_skill_md(sd, profile, _prefix)
             skill_md = _replace_cli_with_scripts(skill_md)
+            skill_md = CodexDeployer.strip_model_references(skill_md)
             atomic_write(skill_dir / "SKILL.md", skill_md)
             if sd["script_name"]:
                 scripts_dir = skill_dir / "scripts"
