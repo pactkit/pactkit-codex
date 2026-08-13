@@ -168,6 +168,7 @@ class CodexDeployer(DeployerBase):
                 content = content.replace(pattern, "~/.codex/")
             content = CodexDeployer.strip_model_references(content)
             content = DeployerBase.strip_excluded_command_references(content, profile)
+            content = _replace_cli_with_scripts(content)
             atomic_write(rules_dir / filename, content + "\n")
 
         cred_path = rules_dir / CREDENTIAL_SAFETY_FILE
@@ -594,7 +595,9 @@ _SCAFFOLD_SCRIPT = "python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py
 _CLI_TO_SCRIPT = [
     # visualize variants (order matters: longer patterns first)
     ("Run `pactkit visualize --lazy`", f"Run `{_VIZ_SCRIPT}` (file, `--mode class`, `--mode call` if source changed)"),
+    ("`pactkit visualize --lazy`", f"`{_VIZ_SCRIPT}` (file, `--mode class`, `--mode call` if source changed)"),
     ("Run `pactkit visualize", f"Run `{_VIZ_SCRIPT}"),
+    ("`pactkit visualize", f"`{_VIZ_SCRIPT}"),
     ("Run `visualize --focus", f"Run `{_VIZ_SCRIPT} --focus"),
     ("Run `visualize --mode", f"Run `{_VIZ_SCRIPT} --mode"),
     ("Run `visualize`", f"Run `{_VIZ_SCRIPT}`"),
@@ -602,8 +605,14 @@ _CLI_TO_SCRIPT = [
     ("Run `python3 ~/.codex/skills/pactkit-board/scripts/board.py", f"Run `{_BOARD_SCRIPT}"),
     # scaffold
     ("Run `python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py", f"Run `{_SCAFFOLD_SCRIPT}"),
-    # pactkit CLI → manual fallback hint (for commands without script equivalents)
+    # pactkit CLI → manual fallback hints (for commands without script equivalents)
     ("Run `pactkit clean`", "Run language-specific cleanup (e.g., `find . -name '__pycache__' -exec rm -rf {} +` for Python)"),
+    ("`pactkit update", "run `pactkit init --format codex` to reinstall"),
+    ("`pactkit lint", "run your language linter directly (e.g., `ruff check src/ tests/` for Python)"),
+    ("`pactkit regression", "run the full test suite directly (e.g., `python3 -m pytest tests/ -v`)"),
+    ("`pactkit context", "update `docs/product/context.md` manually"),
+    ("`pactkit guard", "run your linter and test suite directly"),
+    ("`pactkit doctor", "check project files and structure manually"),
 ]
 
 

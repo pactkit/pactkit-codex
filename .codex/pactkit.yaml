@@ -2,7 +2,6 @@
 # Edit this file to customize which components are deployed.
 # Remove items from a list to disable them. Default: all enabled.
 
-version: "2.8.0"
 stack: python
 root: .
 developer: ""
@@ -32,6 +31,7 @@ commands:
   - project-pr
   - project-release
   - project-sprint
+  - project-debug
 
 # Skills — tool scripts
 skills:
@@ -56,6 +56,10 @@ skills:
   - project-pr
   - project-release
   - project-sprint
+  - pactkit-garden
+  - pactkit-audit
+  - pactkit-report
+  - project-debug
 
 # Rules — constitution modules
 rules:
@@ -68,6 +72,14 @@ rules:
   - 07-shared-protocols
   - 08-architecture-principles
   - 09-sectional-write
+  - 01-workflow-conventions
+  - 02-mcp-integration
+  - 03-shared-protocols
+  - 04-architecture-principles
+  - 05-sectional-write
+  - 06-solution-design
+  - 07-engineering-concerns
+  - pactkit
 
 # CI/CD — set provider to github or gitlab to generate pipeline config
 ci:
@@ -81,14 +93,9 @@ ci:
 issue_tracker:
   provider: none
 
-# Hooks — safe, report-only hook templates (command-type only)
-hooks:
-  post_test_coverage: false
-  pre_commit_lint: false
-  pre_push_check: false
-
 # Lint — configure lint behavior in /project-done
 lint_blocking: false
+
 auto_fix: false
 
 # Virtual Environment — configure venv detection and paths
@@ -108,22 +115,41 @@ regression:
 check:
   security_checklist: true
   security_scope_override: none
+  pactguard:
+    enabled: false
+    mode: all
+    ruleset: ""
+    blocking: false
+  observe:
+    enabled: false
+    sources: auto
+    max_console: 100
+    max_network: 200
 
 # Done — configure commit and lesson quality behavior
 done:
   lesson_quality_threshold: 15
 
-# Visualize — configure directory scan exclusions
+# E2E Testing — configure end-to-end test strategy (none|cli|frontend|backend|fullstack)
+e2e:
+  api_spec: ""
+  blocking: false
+  compose_file: docker-compose.test.yml
+  env_file: ".env.test"
+  test_dir: tests/e2e
+  type: none
+
+# Visualize — configure directory scan exclusions and graph provider
 visualize:
   scan_excludes:
     - venv
     - _venv
-    - .venv
-    - .env
+    - ".venv"
+    - ".env"
     - env
     - __pycache__
-    - .git
-    - .codex
+    - ".git"
+    - ".codex"
     - tests
     - docs
     - node_modules
@@ -132,10 +158,7 @@ visualize:
     - build
 
 # Custom — user-defined keys (preserved by PactKit)
-e2e:
-  api_spec: ''
-  blocking: false
-  compose_file: docker-compose.test.yml
-  env_file: .env.test
-  test_dir: tests/e2e
-  type: none
+hooks:
+  post_test_coverage: false
+  pre_commit_lint: false
+  pre_push_check: false
