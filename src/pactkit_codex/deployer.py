@@ -35,7 +35,6 @@ from pactkit.prompts.rules import (
     CREDENTIAL_SAFETY_FILE,
     RULES_FILES,
 )
-from pactkit.skills import load_script
 from pactkit.utils import atomic_write
 
 # Commands excluded from Codex deployment (require multi-agent capabilities)
@@ -129,6 +128,11 @@ class CodexDeployer(DeployerBase):
             self.generate_codex_project_files(Path.cwd())
 
         self.write_version_marker(codex_root)
+
+        # STORY-slim-139 R2: machine-readable deployment manifest
+        from pactkit.deploy_manifest import write_deploy_manifest
+
+        write_deploy_manifest(codex_root, "codex", cfg)
 
         print(
             f"\n✅ Codex CLI: {n_skills} Skills, {n_commands} Commands → {codex_root}"
@@ -307,12 +311,16 @@ class CodexDeployer(DeployerBase):
 
     @staticmethod
     def generate_codex_config_toml(codex_root):
-        """Generate or merge config.toml for Codex CLI.
+        """Create or extend config.toml for Codex CLI — strictly append-only.
 
         R1: Create with PactKit-managed sections if absent.
-        R4: Merge additive-only for user fields when existing.
-        R5: Never write API keys or secrets.
-        R6: Mark managed sections with [pactkit:managed] comments.
+        R4: Only ADD missing keys/sections; existing content is never
+            re-serialized, reordered, or deleted (BUG 2026-08-13: the old
+            parse-and-rewrite via _write_toml_with_markers stringified TOML
+            arrays — e.g. mcp_servers.playwright args — and dropped comments).
+        R5: Never write API keys or secrets (we only ever write our own
+            constant defaults, never user content).
+        R6: Mark appended sections with [pactkit:managed] comments.
         """
         config_path = codex_root / "config.toml"
 
@@ -324,31 +332,39 @@ class CodexDeployer(DeployerBase):
             "context7": {"url": "https://mcp.context7.com/mcp"},
         }
 
-        FORBIDDEN_KEYS = {"api_key", "OPENAI_API_KEY", "organization"}
-
-        if config_path.exists():
-            try:
-                existing = tomllib.loads(config_path.read_text())
-            except Exception:
-                # User-edited config may have non-standard TOML; preserve it
-                existing = {}
+        if not config_path.exists():
+            lines = ["# [pactkit:managed]"]
             for key, value in pactkit_defaults.items():
-                if key not in existing:
-                    existing[key] = value
-            if "mcp_servers" not in existing:
-                existing["mcp_servers"] = {}
+                lines.append(f"{key} = {_toml_value(value)}")
             for name, cfg in pactkit_mcp.items():
-                if name not in existing["mcp_servers"]:
-                    existing["mcp_servers"][name] = cfg
-            merged = existing
-        else:
-            merged = dict(pactkit_defaults)
-            merged["mcp_servers"] = dict(pactkit_mcp)
+                lines += ["", "# [pactkit:managed]", f"[mcp_servers.{name}]"]
+                lines += [f"{k} = {_toml_value(v)}" for k, v in cfg.items()]
+            atomic_write(config_path, chr(10).join(lines) + chr(10))
+            return
 
-        for key in FORBIDDEN_KEYS:
-            merged.pop(key, None)
+        try:
+            existing = tomllib.loads(config_path.read_text())
+        except Exception:
+            # Unparsable user config — do NOT touch it at all
+            print("  ⚠️ config.toml unparsable — leaving it untouched")
+            return
 
-        _write_toml_with_markers(config_path, merged)
+        missing_top = {k: v for k, v in pactkit_defaults.items() if k not in existing}
+        mcp = existing.get("mcp_servers", {})
+        missing_mcp = {k: v for k, v in pactkit_mcp.items() if k not in mcp}
+        if not missing_top and not missing_mcp:
+            return  # nothing to add — file stays byte-identical
+
+        lines = []
+        if missing_top:
+            lines.append("# [pactkit:managed]")
+            lines += [f"{k} = {_toml_value(v)}" for k, v in missing_top.items()]
+        for name, cfg in missing_mcp.items():
+            lines += ["", "# [pactkit:managed]", f"[mcp_servers.{name}]"]
+            lines += [f"{k} = {_toml_value(v)}" for k, v in cfg.items()]
+
+        with open(config_path, "a", encoding="utf-8") as f:
+            f.write(chr(10) + chr(10).join(lines) + chr(10))
 
     @staticmethod
     def generate_codex_project_files(project_root):
@@ -398,67 +414,31 @@ class CodexDeployer(DeployerBase):
         """Deploy skills with Codex-specific path replacement in scripts."""
         _prefix = profile.skills_path_var
 
-        scripted_skill_defs = [
-            {
-                "name": "pactkit-visualize",
-                "skill_md": prompts.SKILL_VISUALIZE_MD,
-                "script_name": "visualize.py",
-                "script_source": load_script("visualize.py"),
-            },
-            {
-                "name": "pactkit-board",
-                "skill_md": prompts.SKILL_BOARD_MD,
-                "script_name": "board.py",
-                "script_source": load_script("board.py"),
-            },
-            {
-                "name": "pactkit-scaffold",
-                "skill_md": prompts.SKILL_SCAFFOLD_MD,
-                "script_name": "scaffold.py",
-                "script_source": load_script("scaffold.py"),
-            },
-        ]
-
-        prompt_only_skill_defs = [
-            {"name": "pactkit-trace", "skill_md": prompts.SKILL_TRACE_MD},
-            {"name": "pactkit-draw", "skill_md": prompts.SKILL_DRAW_MD},
-            {"name": "pactkit-status", "skill_md": prompts.SKILL_STATUS_MD},
-            {"name": "pactkit-doctor", "skill_md": prompts.SKILL_DOCTOR_MD},
-            {"name": "pactkit-review", "skill_md": prompts.SKILL_REVIEW_MD},
-            {"name": "pactkit-release", "skill_md": prompts.SKILL_RELEASE_MD},
-            {"name": "pactkit-analyze", "skill_md": prompts.SKILL_ANALYZE_MD},
-        ]
+        # STORY-slim-139 R4: consume the core SKILL_MANIFEST — no local
+        # hardcoded skill list (the old 10-item snapshot silently dropped
+        # garden/audit/report when core added them).
+        from pactkit.generators.deployer import _render_skill_md
+        from pactkit.prompts.skills import get_skill_manifest
 
         enabled_set = set(enabled_skills)
         deployed = 0
 
-        for sd in scripted_skill_defs:
-            if sd["name"] not in enabled_set:
-                continue
-            skill_dir = skills_dir / sd["name"]
-            scripts_dir = skill_dir / "scripts"
-            scripts_dir.mkdir(parents=True, exist_ok=True)
-
-            from pactkit.generators.deployer import _render_skill_md
-            skill_md = _render_skill_md(sd, profile, _prefix)
-            skill_md = _replace_cli_with_scripts(skill_md)
-            atomic_write(skill_dir / "SKILL.md", skill_md)
-            script_content = sd["script_source"]
-            script_content = script_content.replace("~/.claude/", f"{profile.global_config_dir}/")
-            script_content = script_content.replace("~/.config/opencode/", f"{profile.global_config_dir}/")
-            atomic_write(scripts_dir / sd["script_name"], script_content)
-            deployed += 1
-
-        for sd in prompt_only_skill_defs:
+        for sd in get_skill_manifest():
             if sd["name"] not in enabled_set:
                 continue
             skill_dir = skills_dir / sd["name"]
             skill_dir.mkdir(parents=True, exist_ok=True)
 
-            from pactkit.generators.deployer import _render_skill_md
             skill_md = _render_skill_md(sd, profile, _prefix)
             skill_md = _replace_cli_with_scripts(skill_md)
             atomic_write(skill_dir / "SKILL.md", skill_md)
+            if sd["script_name"]:
+                scripts_dir = skill_dir / "scripts"
+                scripts_dir.mkdir(exist_ok=True)
+                script_content = sd["script_source"]
+                script_content = script_content.replace("~/.claude/", f"{profile.global_config_dir}/")
+                script_content = script_content.replace("~/.config/opencode/", f"{profile.global_config_dir}/")
+                atomic_write(scripts_dir / sd["script_name"], script_content)
             deployed += 1
 
         return deployed
@@ -632,42 +612,6 @@ def _replace_cli_with_scripts(content):
     content = re.sub(r"'/project-", "'$project-", content)
     return content
 
-
-def _write_toml_with_markers(path, data):
-    """Write a dict as TOML with [pactkit:managed] comment markers."""
-    lines = ["# [pactkit:managed]"]
-
-    for key, value in sorted(data.items()):
-        if isinstance(value, dict):
-            continue
-        lines.append(f'{key} = {_toml_value(value)}')
-
-    lines.append("")
-
-    for key, value in sorted(data.items()):
-        if not isinstance(value, dict):
-            continue
-        if key == "mcp_servers":
-            lines.append("# [pactkit:managed]")
-        for sub_key, sub_val in sorted(value.items()):
-            quoted_sub = _toml_key(sub_key)
-            if isinstance(sub_val, dict):
-                lines.append(f"[{key}.{quoted_sub}]")
-                for k, v in sorted(sub_val.items()):
-                    lines.append(f'{_toml_key(k)} = {_toml_value(v)}')
-            else:
-                lines.append(f"[{key}]")
-                lines.append(f'{quoted_sub} = {_toml_value(sub_val)}')
-            lines.append("")
-
-    atomic_write(path, "\n".join(lines) + "\n")
-
-
-def _toml_key(key):
-    """Quote a TOML key if it contains characters outside [A-Za-z0-9_-]."""
-    if re.fullmatch(r'[A-Za-z0-9_-]+', key):
-        return key
-    return f'"{key}"'
 
 
 def _toml_value(value):

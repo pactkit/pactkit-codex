@@ -103,3 +103,59 @@ class TestConfigToml:
         config_path = self._generate(codex_root)
         content = config_path.read_text()
         assert "[pactkit:managed]" in content
+
+
+class TestAppendOnlyMerge:
+    """BUG 2026-08-13: the old parse-and-rewrite writer stringified TOML
+    arrays and dropped comments. The merge must be strictly append-only."""
+
+    def test_arrays_and_comments_preserved(self, codex_root):
+        config_path = codex_root / "config.toml"
+        original = (
+            '# my hand-written config\n'
+            'model = "gpt-5"\n'
+            '\n'
+            '[mcp_servers.playwright]\n'
+            'args = ["--yes", "@playwright/mcp@latest", "--headless"]\n'
+            'command = "npx"\n'
+        )
+        config_path.write_text(original)
+
+        from pactkit_codex.deployer import CodexDeployer
+
+        CodexDeployer.generate_codex_config_toml(codex_root)
+        content = config_path.read_text()
+        # original content survives byte-for-byte at the top of the file
+        assert content.startswith(original)
+        # array is still an array after parsing
+        import tomllib
+        data = tomllib.loads(content)
+        assert data["mcp_servers"]["playwright"]["args"] == ["--yes", "@playwright/mcp@latest", "--headless"]
+
+    def test_nothing_missing_means_untouched(self, codex_root):
+        config_path = codex_root / "config.toml"
+        original = (
+            'sandbox_mode = "workspace-write"\n'
+            'approval_policy = "on-request"\n'
+            '\n'
+            '[mcp_servers.context7]\n'
+            'url = "https://mcp.context7.com/mcp"\n'
+        )
+        config_path.write_text(original)
+
+        from pactkit_codex.deployer import CodexDeployer
+
+        CodexDeployer.generate_codex_config_toml(codex_root)
+        assert config_path.read_text() == original  # byte-identical
+
+    def test_missing_keys_appended_not_merged(self, codex_root):
+        config_path = codex_root / "config.toml"
+        config_path.write_text('model = "gpt-5"\n')
+
+        from pactkit_codex.deployer import CodexDeployer
+
+        CodexDeployer.generate_codex_config_toml(codex_root)
+        content = config_path.read_text()
+        assert content.startswith('model = "gpt-5"\n')
+        assert 'sandbox_mode = "workspace-write"' in content
+        assert "[pactkit:managed]" in content
