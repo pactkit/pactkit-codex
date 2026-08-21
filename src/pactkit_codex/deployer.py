@@ -23,6 +23,7 @@ from pactkit.config import (
 from pactkit.generators.deploy_base import DeployerBase, register_deployer
 from pactkit.generators.deployer import (
     _cleanup_legacy,
+    _enforce_deploy_integrity,
     _render_prompt,
 )
 from pactkit.profiles import get_profile
@@ -169,6 +170,7 @@ class CodexDeployer(DeployerBase):
             content = CodexDeployer.strip_model_references(content)
             content = DeployerBase.strip_excluded_command_references(content, profile)
             content = _replace_cli_with_scripts(content)
+            _enforce_deploy_integrity(content, profile, f"rule:{filename}")
             atomic_write(rules_dir / filename, content + "\n")
 
         cred_path = rules_dir / CREDENTIAL_SAFETY_FILE
@@ -247,6 +249,7 @@ class CodexDeployer(DeployerBase):
             warnings.warn(f"AGENTS.md exceeds 10KB ({len(content_bytes)} bytes), truncating agent details")
             raw_content = _truncate_agents_md(raw_content, MAX_SIZE)
 
+        _enforce_deploy_integrity(raw_content, profile, "AGENTS.md")
         atomic_write(codex_root / "AGENTS.md", raw_content)
 
     @staticmethod
@@ -297,6 +300,7 @@ class CodexDeployer(DeployerBase):
 
             frontmatter = f'---\nname: {cmd_name}\ndescription: "{description}"\n---\n\n'
             skill_content = frontmatter + "\n".join(refs) + "\n\n" + content
+            _enforce_deploy_integrity(skill_content, profile, f"command_skill:{cmd_name}")
 
             skill_dir = skills_dir / cmd_name
             skill_dir.mkdir(parents=True, exist_ok=True)
@@ -400,6 +404,7 @@ class CodexDeployer(DeployerBase):
             skill_md = _render_skill_md(sd, profile, _prefix)
             skill_md = _replace_cli_with_scripts(skill_md)
             skill_md = CodexDeployer.strip_model_references(skill_md)
+            _enforce_deploy_integrity(skill_md, profile, f"skill:{sd['name']}")
             atomic_write(skill_dir / "SKILL.md", skill_md)
             if sd["script_name"]:
                 scripts_dir = skill_dir / "scripts"
@@ -540,28 +545,16 @@ _VIZ_SCRIPT = "python3 ~/.codex/skills/pactkit-visualize/scripts/visualize.py"
 _BOARD_SCRIPT = "python3 ~/.codex/skills/pactkit-board/scripts/board.py"
 _SCAFFOLD_SCRIPT = "python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py"
 
-# CLI subcommands that map to skill scripts
+# CLI subcommands that map to skill scripts (STORY-slim-145 R3: lossy CLI
+# prefix replacements for regression/lint/context/clean/visualize/guard/
+# doctor/update REMOVED — Codex is CLIPolicy.PREFERRED, so canonical `pactkit`
+# CLI commands are preserved by Core _render_prompt rather than rewritten here.
+# Only genuine path normalization (board/scaffold) remains in this table.
 _CLI_TO_SCRIPT = [
-    # visualize variants (order matters: longer patterns first)
-    ("Run `pactkit visualize --lazy`", f"Run `{_VIZ_SCRIPT}` (file, `--mode class`, `--mode call` if source changed)"),
-    ("`pactkit visualize --lazy`", f"`{_VIZ_SCRIPT}` (file, `--mode class`, `--mode call` if source changed)"),
-    ("Run `pactkit visualize", f"Run `{_VIZ_SCRIPT}"),
-    ("`pactkit visualize", f"`{_VIZ_SCRIPT}"),
-    ("Run `visualize --focus", f"Run `{_VIZ_SCRIPT} --focus"),
-    ("Run `visualize --mode", f"Run `{_VIZ_SCRIPT} --mode"),
-    ("Run `visualize`", f"Run `{_VIZ_SCRIPT}`"),
-    # board
+    # board (path normalization)
     ("Run `python3 ~/.codex/skills/pactkit-board/scripts/board.py", f"Run `{_BOARD_SCRIPT}"),
-    # scaffold
+    # scaffold (path normalization)
     ("Run `python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py", f"Run `{_SCAFFOLD_SCRIPT}"),
-    # pactkit CLI → manual fallback hints (for commands without script equivalents)
-    ("Run `pactkit clean`", "Run language-specific cleanup (e.g., `find . -name '__pycache__' -exec rm -rf {} +` for Python)"),
-    ("`pactkit update", "run `pactkit init --format codex` to reinstall"),
-    ("`pactkit lint", "run your language linter directly (e.g., `ruff check src/ tests/` for Python)"),
-    ("`pactkit regression", "run the full test suite directly (e.g., `python3 -m pytest tests/ -v`)"),
-    ("`pactkit context", "update `docs/product/context.md` manually"),
-    ("`pactkit guard", "run your linter and test suite directly"),
-    ("`pactkit doctor", "check project files and structure manually"),
 ]
 
 
