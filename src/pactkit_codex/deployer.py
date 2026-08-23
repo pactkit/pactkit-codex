@@ -11,6 +11,8 @@ Codex-specific features:
 - Project-level .codex/ structure
 """
 
+import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -40,6 +42,17 @@ CODEX_EXCLUDED_COMMANDS: frozenset[str] = frozenset()
 
 # Version marker filename (STORY-012)
 VERSION_MARKER_FILE = ".pactkit-version"
+PACTKIT_HOOK_OWNER = "pactkit.workflow.stop"
+PACTKIT_STOP_COMMAND = "pactkit-codex-stop-hook"
+PACTKIT_HOOK_PROTOCOL_VERSION = 1
+PACTKIT_HOOK_STATE_FILE = "pactkit-hook-state.json"
+PACTKIT_STOP_SCRIPT = '''\
+#!/usr/bin/env python3
+"""Stable launcher for the PactKit Codex Stop hook."""
+from pactkit_codex.stop_hook import main
+
+raise SystemExit(main())
+'''
 
 _CODEX_PROJECT_AGENTS_MD = """\
 # {project_name}
@@ -83,14 +96,64 @@ class CodexDeployer(DeployerBase):
     profile = get_profile("codex")
 
     @staticmethod
-    def continuation_capabilities():
-        """Handshake consumed by wrappers; current Codex has no completion hook."""
+    def continuation_capabilities(codex_root=None):
+        """Report installed separately from observed host-level enforcement."""
+        root = Path(codex_root) if codex_root else Path.home() / ".codex"
+        hooks_path = root / "hooks.json"
+        installed = False
+        if hooks_path.exists():
+            try:
+                payload = json.loads(hooks_path.read_text(encoding="utf-8"))
+                entries = payload.get("hooks", {}).get("Stop", [])
+                installed = any(
+                    CodexDeployer._is_pactkit_stop_entry(item)
+                    for item in entries if isinstance(item, dict)
+                )
+            except (OSError, json.JSONDecodeError, AttributeError):
+                installed = False
+        script_path = root / "hooks" / "pactkit_stop.py"
+        hook_sha256 = (
+            hashlib.sha256(script_path.read_bytes()).hexdigest()
+            if script_path.is_file() else None
+        )
+        state = {}
+        state_path = root / PACTKIT_HOOK_STATE_FILE
+        if state_path.is_file():
+            try:
+                candidate = json.loads(state_path.read_text(encoding="utf-8"))
+                if isinstance(candidate, dict):
+                    state = candidate
+            except (OSError, json.JSONDecodeError):
+                state = {}
+        observed = bool(state.get("observed"))
+        trusted = observed and state.get("validation_mode") != "bypass"
+        runs = state.get("runs", {})
+        same_run_validated = isinstance(runs, dict) and any(
+            isinstance(value, dict)
+            and value.get("block_observed")
+            and value.get("done_observed")
+            for value in runs.values()
+        )
+        validated = bool(
+            trusted
+            and same_run_validated
+            and state.get("hook_protocol_version") == PACTKIT_HOOK_PROTOCOL_VERSION
+            and state.get("hook_sha256") == hook_sha256
+        )
+        active = installed and validated
         return {
             "finish_guard_supported": True,
-            "completion_hook": False,
-            "session_reentry": False,
-            "auto_resume_available": False,
-            "guarantee_level": "process",
+            "completion_hook": active,
+            "session_reentry": True,
+            "auto_resume_available": active,
+            "guarantee_level": "host" if active else "process",
+            "hook_installed": installed,
+            "hook_trusted": trusted,
+            "hook_observed": observed,
+            "continuation_validated": validated,
+            "hook_protocol_version": PACTKIT_HOOK_PROTOCOL_VERSION,
+            "hook_sha256": hook_sha256,
+            "trust_review_command": None if trusted else "/hooks",
         }
 
     def deploy(self, config=None, target=None):
@@ -132,6 +195,7 @@ class CodexDeployer(DeployerBase):
         self.deploy_codex_agents_md(codex_root, self.profile)
 
         self.generate_codex_config_toml(codex_root)
+        self.deploy_stop_hook(codex_root)
 
         if target is None:
             self.generate_codex_project_files(Path.cwd())
@@ -141,13 +205,103 @@ class CodexDeployer(DeployerBase):
         # STORY-slim-139 R2: machine-readable deployment manifest
         from pactkit.deploy_manifest import write_deploy_manifest
 
-        write_deploy_manifest(codex_root, "codex", cfg)
+        manifest_path = write_deploy_manifest(codex_root, "codex", cfg)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["workflow_continuation"] = self.continuation_capabilities(codex_root)
+        atomic_write(
+            manifest_path,
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        )
 
         print(
             f"\n✅ Codex CLI: {n_skills} Skills, {n_commands} Commands → {codex_root}"
         )
 
     # --- Version tracking ---
+
+    @staticmethod
+    def deploy_stop_hook(codex_root):
+        """Merge the PactKit-owned Stop handler without replacing user hooks."""
+        codex_root = Path(codex_root)
+        hooks_dir = codex_root / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        script_path = hooks_dir / "pactkit_stop.py"
+        atomic_write(script_path, PACTKIT_STOP_SCRIPT)
+
+        hooks_path = codex_root / "hooks.json"
+        if hooks_path.exists():
+            try:
+                payload = json.loads(hooks_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError("existing Codex hooks.json is invalid") from exc
+            if not isinstance(payload, dict):
+                raise ValueError("existing Codex hooks.json must be an object")
+        else:
+            payload = {"description": "Codex lifecycle hooks"}
+        hooks = payload.setdefault("hooks", {})
+        if not isinstance(hooks, dict):
+            raise ValueError("existing Codex hooks field must be an object")
+        stop_entries = hooks.setdefault("Stop", [])
+        if not isinstance(stop_entries, list):
+            raise ValueError("existing Codex Stop hooks must be a list")
+        owned = {
+            "hooks": [{
+                "type": "command",
+                "command": PACTKIT_STOP_COMMAND,
+                "timeout": 30,
+                "statusMessage": "Checking PactKit workflow completion",
+            }],
+        }
+        retained = [
+            item for item in stop_entries
+            if not CodexDeployer._is_pactkit_stop_entry(item)
+        ]
+        hooks["Stop"] = [*retained, owned]
+        atomic_write(hooks_path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+        return script_path
+
+    @staticmethod
+    def remove_stop_hook(codex_root):
+        """Remove only PactKit's Stop entry and unreferenced launcher."""
+        codex_root = Path(codex_root)
+        hooks_path = codex_root / "hooks.json"
+        if hooks_path.is_file():
+            try:
+                payload = json.loads(hooks_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError("existing Codex hooks.json is invalid") from exc
+            hooks = payload.get("hooks")
+            if isinstance(hooks, dict):
+                entries = hooks.get("Stop")
+                if isinstance(entries, list):
+                    hooks["Stop"] = [
+                        item for item in entries
+                        if not CodexDeployer._is_pactkit_stop_entry(item)
+                    ]
+                    if not hooks["Stop"]:
+                        hooks.pop("Stop")
+                atomic_write(
+                    hooks_path,
+                    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                )
+        script_path = codex_root / "hooks" / "pactkit_stop.py"
+        if script_path.is_file():
+            script_path.unlink()
+
+    @staticmethod
+    def _is_pactkit_stop_entry(item):
+        """Recognize only PactKit's exact command without schema extensions."""
+        if not isinstance(item, dict):
+            return False
+        handlers = item.get("hooks")
+        return bool(
+            isinstance(handlers, list)
+            and any(
+                isinstance(handler, dict)
+                and handler.get("command") == PACTKIT_STOP_COMMAND
+                for handler in handlers
+            )
+        )
 
     @staticmethod
     def write_version_marker(codex_root, version=None):

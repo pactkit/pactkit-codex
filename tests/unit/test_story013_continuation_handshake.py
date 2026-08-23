@@ -6,8 +6,9 @@ from pactkit_codex.deployer import CodexDeployer
 
 
 def test_codex_adapter_preserves_pre_final_protocol_and_reports_real_capability(tmp_path):
-    skills = tmp_path / "skills"
-    skills.mkdir()
+    codex_root = tmp_path / "codex"
+    skills = codex_root / "skills"
+    skills.mkdir(parents=True)
     CodexDeployer.deploy_codex_command_skills(skills, get_profile("codex"))
     for command in ("project-plan", "project-act"):
         content = (skills / command / "SKILL.md").read_text()
@@ -17,7 +18,7 @@ def test_codex_adapter_preserves_pre_final_protocol_and_reports_real_capability(
         assert "await_user" in content
         assert "Progress is not final" in content
 
-    capability = CodexDeployer.continuation_capabilities()
+    capability = CodexDeployer.continuation_capabilities(codex_root)
     assert capability["finish_guard_supported"] is True
     assert capability["auto_resume_available"] is False
     assert capability["guarantee_level"] == "process"

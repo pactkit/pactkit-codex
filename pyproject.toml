@@ -53,6 +53,9 @@ Issues = "https://github.com/pactkit/pactkit-codex/issues"
 [project.entry-points."pactkit.deployers"]
 codex = "pactkit_codex:CodexDeployer"
 
+[project.scripts]
+pactkit-codex-stop-hook = "pactkit_codex.stop_hook:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
