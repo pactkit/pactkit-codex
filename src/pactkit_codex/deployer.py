@@ -34,8 +34,9 @@ from pactkit.prompts.rules import (
 )
 from pactkit.utils import atomic_write
 
-# Commands excluded from Codex deployment (require multi-agent capabilities)
-CODEX_EXCLUDED_COMMANDS = frozenset({"project-sprint.md"})
+# All canonical commands deploy. Sprint degrades to sequential execution when
+# Codex does not expose team orchestration primitives.
+CODEX_EXCLUDED_COMMANDS: frozenset[str] = frozenset()
 
 # Version marker filename (STORY-012)
 VERSION_MARKER_FILE = ".pactkit-version"
@@ -80,6 +81,17 @@ class CodexDeployer(DeployerBase):
     """
 
     profile = get_profile("codex")
+
+    @staticmethod
+    def continuation_capabilities():
+        """Handshake consumed by wrappers; current Codex has no completion hook."""
+        return {
+            "finish_guard_supported": True,
+            "completion_hook": False,
+            "session_reentry": False,
+            "auto_resume_available": False,
+            "guarantee_level": "process",
+        }
 
     def deploy(self, config=None, target=None):
         """Deploy PactKit configuration for Codex CLI."""

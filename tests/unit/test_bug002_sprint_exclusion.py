@@ -1,4 +1,4 @@
-"""Tests for BUG-002: project-sprint should not be deployed to Codex CLI."""
+"""Sprint remains available in Codex through a sequential fallback."""
 
 import pytest
 
@@ -11,11 +11,10 @@ def codex_deploy(tmp_path):
     return tmp_path
 
 
-class TestAC1SprintNotDeployed:
-    """AC1: project-sprint skill dir not in skills/, exactly 10 command skill dirs."""
+class TestAC1SprintFallback:
 
-    def test_sprint_not_in_skills(self, codex_deploy):
-        assert not (codex_deploy / "skills" / "project-sprint").exists()
+    def test_sprint_is_deployed(self, codex_deploy):
+        assert (codex_deploy / "skills" / "project-sprint" / "SKILL.md").exists()
 
     def test_exactly_10_command_skill_dirs(self, codex_deploy):
         expected_commands = {
@@ -45,4 +44,4 @@ class TestExclusionConstant:
         from pactkit_codex.deployer import CODEX_EXCLUDED_COMMANDS
 
         assert isinstance(CODEX_EXCLUDED_COMMANDS, (set, frozenset))
-        assert "project-sprint.md" in CODEX_EXCLUDED_COMMANDS
+        assert CODEX_EXCLUDED_COMMANDS == frozenset()

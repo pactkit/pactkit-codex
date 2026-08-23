@@ -1,6 +1,6 @@
 """Tests for STORY-004: Deploy PDCA Commands as Codex Skills.
 
-Tests that deploy_codex_command_skills() creates 10 command skill dirs,
+Tests that deploy_codex_command_skills() creates all command skill dirs,
 each with a SKILL.md containing @~/.codex/rules/ references, no Claude
 paths, and no Anthropic model names.
 """
@@ -28,7 +28,7 @@ EXPECTED_COMMANDS = [
     "project-release",
     "project-pr",
     "project-debug",
-    # project-sprint excluded — requires multi-agent (BUG-002)
+    "project-sprint",
 ]
 
 ARGUMENT_COMMANDS = {"project-act", "project-check", "project-done", "project-hotfix", "project-clarify"}
@@ -45,15 +45,15 @@ class TestCodexCommandSkills:
         profile = get_profile("codex")
         return CodexDeployer.deploy_codex_command_skills(skills_dir, profile)
 
-    def test_ac1_all_11_skill_dirs_present(self, skills_dir):
-        """AC1: All 11 command skill dirs are present (sprint excluded; debug added slim-133)."""
+    def test_ac1_all_12_skill_dirs_present(self, skills_dir):
+        """AC1: All canonical command skill dirs are present."""
         count = self._deploy(skills_dir)
-        assert count == 11
+        assert count == 12
         for cmd in EXPECTED_COMMANDS:
             assert (skills_dir / cmd).is_dir(), f"Missing skill dir: {cmd}"
 
     def test_ac1_only_expected_dirs(self, skills_dir):
-        """AC1: No extra command dirs beyond the 11."""
+        """AC1: No extra command dirs beyond the canonical 12."""
         self._deploy(skills_dir)
         dirs = sorted(d.name for d in skills_dir.iterdir() if d.is_dir())
         assert dirs == sorted(EXPECTED_COMMANDS)

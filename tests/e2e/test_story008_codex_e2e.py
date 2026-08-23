@@ -40,10 +40,10 @@ class TestAC1ArtifactCreation:
         assert (codex_deploy / "skills/pactkit-visualize/scripts/visualize.py").is_file()
 
     def test_20_skill_dirs(self, codex_deploy):
-        """R1: 24 skill directories under skills/ (13 embedded + 11 PDCA commands, sprint excluded)."""
+        """R1: 25 skill directories (13 embedded + 12 PDCA commands)."""
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
-        assert len(skill_dirs) == 24, (
-            f"Expected 24 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
+        assert len(skill_dirs) == 25, (
+            f"Expected 25 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
         )
 
     def test_10_command_skill_dirs(self, codex_deploy):
@@ -161,9 +161,9 @@ class TestCommandSkillIntegrity:
             f"Missing command skills: {expected - skill_dirs}"
         )
 
-    def test_sprint_not_in_skills(self, codex_deploy):
-        """project-sprint must not be deployed as a skill."""
-        assert not (codex_deploy / "skills" / "project-sprint").exists()
+    def test_sprint_has_sequential_fallback(self, codex_deploy):
+        content = (codex_deploy / "skills" / "project-sprint" / "SKILL.md").read_text()
+        assert "execute Plan → Act → Check → Close sequentially" in content
 
     def test_command_skills_have_skill_md(self, codex_deploy):
         """Each command skill directory has a SKILL.md file."""
