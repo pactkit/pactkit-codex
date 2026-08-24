@@ -1,4 +1,8 @@
-"""Codex Stop hook backed by PactKit's authoritative workflow state."""
+"""Advisory-only Codex Stop hook.
+
+Core WorkUnits own workflow state. This legacy hook may record a sanitized
+observation, but it never blocks a turn or schedules continuation work.
+"""
 
 from __future__ import annotations
 
@@ -12,16 +16,11 @@ from pathlib import Path
 from typing import Any
 
 from pactkit.continuation import ContinuationEngine, ContinuationError
-from pactkit.host_continuation import HostCapabilities, HostContinuationRunner
 from pactkit.utils import atomic_write
 
 HOOK_PROTOCOL_VERSION = 1
 HOOK_STATE_FILE = "pactkit-hook-state.json"
 HOOK_TRACE_FILE = "pactkit-hook-observations.jsonl"
-
-
-def _block(reason: str) -> dict[str, str]:
-    return {"decision": "block", "reason": reason}
 
 
 def _reference(value: object) -> str | None:
@@ -58,8 +57,7 @@ def _record_observation(
         if not isinstance(run_state, dict):
             run_state = {}
         runs[run_id] = {
-            "block_observed": bool(run_state.get("block_observed")) or decision == "block",
-            "done_observed": bool(run_state.get("done_observed")) or decision == "done",
+            "advisory_observed": bool(run_state.get("advisory_observed")) or decision == "advisory",
         }
     record = {
         "observed": True,
@@ -108,123 +106,50 @@ def _refresh_deploy_manifest(root: Path) -> None:
 
 
 def handle_stop(event: dict[str, Any]) -> dict[str, Any]:
-    """Map a Codex Stop event to an allow or continuation decision."""
+    """Record advisory Stop evidence and always let the host complete."""
     started = time.monotonic()
     if not isinstance(event, dict) or event.get("hook_event_name") != "Stop":
-        result = _block("pactkit_stop_hook:invalid_event")
         if isinstance(event, dict):
-            _record_observation(
-                event, resolved=None, decision="block", reason_code="invalid_event",
-                attempt=None, duration_ms=int((time.monotonic() - started) * 1000),
-            )
-        return result
-    cwd = event.get("cwd")
-    session_id = event.get("session_id")
-    turn_id = event.get("turn_id")
+            _record_observation(event, resolved=None, decision="advisory",
+                                reason_code="invalid_event", attempt=None,
+                                duration_ms=int((time.monotonic() - started) * 1000))
+        return {}
+    cwd, session_id, turn_id = event.get("cwd"), event.get("session_id"), event.get("turn_id")
     if not isinstance(cwd, str) or not isinstance(session_id, str):
-        result = _block("pactkit_stop_hook:invalid_input")
-        _record_observation(
-            event, resolved=None, decision="block", reason_code="invalid_input",
-            attempt=None, duration_ms=int((time.monotonic() - started) * 1000),
-        )
-        return result
+        _record_observation(event, resolved=None, decision="advisory",
+                            reason_code="invalid_input", attempt=None,
+                            duration_ms=int((time.monotonic() - started) * 1000))
+        return {}
     root = Path(cwd).expanduser().resolve()
     if not root.is_dir():
-        result = _block("pactkit_stop_hook:invalid_cwd")
-        _record_observation(
-            event, resolved=None, decision="block", reason_code="invalid_cwd",
-            attempt=None, duration_ms=int((time.monotonic() - started) * 1000),
-        )
-        return result
-
-    engine = ContinuationEngine(root)
-    try:
-        resolved = engine.resolve_host_run(
-            session_id=session_id,
-            turn_id=turn_id if isinstance(turn_id, str) else None,
-        )
-    except ContinuationError as exc:
-        message = str(exc)
-        if message == "no active workflow run":
-            _record_observation(
-                event, resolved=None, decision="allow", reason_code="no_active_run",
-                attempt=None, duration_ms=int((time.monotonic() - started) * 1000),
-            )
-            return {}
-        if event.get("stop_hook_active") is True:
-            return {}
-        reason_code = (
-            "multiple_active_runs"
-            if message == "multiple active workflow runs"
-            else "invalid_state"
-        )
-        result = _block(f"pactkit_stop_hook:{reason_code}; {message}")
-        _record_observation(
-            event, resolved=None, decision="block", reason_code=reason_code,
-            attempt=None, duration_ms=int((time.monotonic() - started) * 1000),
-        )
-        return result
-
-    # Persist a unique-active fallback immediately.  Without this binding the
-    # final Stop cannot resolve the same run after it transitions to completed.
-    try:
-        engine.bind_host_session(
-            str(resolved["run_id"]), session_id=session_id,
-            turn_id=turn_id if isinstance(turn_id, str) else None,
-        )
-    except ContinuationError as exc:
-        # A completed run reached through an existing binding is immutable and
-        # already has the identity needed by this Stop event.
-        if str(exc) != "completed workflow is immutable":
-            if event.get("stop_hook_active") is True:
-                return {}
-            return _block(f"pactkit_stop_hook:binding_failed; {exc}")
-
-    runner = HostContinuationRunner(
-        engine,
-        HostCapabilities(completion_hook=True, session_reentry=True),
-        owner="codex-stop-hook",
-    )
-    try:
-        decision = runner.after_model_turn(
-            str(resolved["identifier"]), session_locator=session_id,
-        )
-    except (ContinuationError, OSError, ValueError, TypeError) as exc:
-        if event.get("stop_hook_active") is True:
-            return {}
-        return _block(f"pactkit_stop_hook:invalid_state; {exc}")
-
-    host_decision = str(decision.get("decision"))
-    reason_code = str(decision.get("reason_code") or host_decision)
-    if host_decision in {"done", "await_user"}:
-        _record_observation(
-            event, resolved=resolved, decision=host_decision, reason_code=reason_code,
-            attempt=decision.get("attempt"),
-            duration_ms=int((time.monotonic() - started) * 1000),
-        )
+        _record_observation(event, resolved=None, decision="advisory",
+                            reason_code="invalid_cwd", attempt=None,
+                            duration_ms=int((time.monotonic() - started) * 1000))
         return {}
-    next_step = decision.get("next_step") or "inspect workflow state"
-    result = _block(
-        "PactKit workflow is not complete. "
-        f"run_id={decision.get('run_id')} "
-        f"workflow={decision.get('workflow_id')} "
-        f"next_step={next_step} "
-        f"reason_code={decision.get('reason_code')}. "
-        "Continue the same workflow now; progress summaries are not final."
-    )
-    _record_observation(
-        event, resolved=resolved, decision="block", reason_code=reason_code,
-        attempt=decision.get("attempt"),
-        duration_ms=int((time.monotonic() - started) * 1000),
-    )
-    return result
+    try:
+        resolved = ContinuationEngine(root).resolve_host_run(
+            session_id=session_id, turn_id=turn_id if isinstance(turn_id, str) else None,
+        )
+        reason_code = "active_run"
+    except ContinuationError as exc:
+        resolved = None
+        message = str(exc)
+        reason_code = (
+            "no_active_run" if message == "no active workflow run"
+            else "multiple_active_runs"
+            if message == "multiple active workflow runs" else "invalid_state"
+        )
+    _record_observation(event, resolved=resolved, decision="advisory",
+                        reason_code=reason_code, attempt=None,
+                        duration_ms=int((time.monotonic() - started) * 1000))
+    return {}
 
 
 def main() -> int:
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError):
-        result = _block("pactkit_stop_hook:invalid_json")
+        result = {}
     else:
         result = handle_stop(event)
     json.dump(result, sys.stdout, ensure_ascii=False)

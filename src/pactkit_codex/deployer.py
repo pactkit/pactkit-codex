@@ -97,7 +97,7 @@ class CodexDeployer(DeployerBase):
 
     @staticmethod
     def continuation_capabilities(codex_root=None):
-        """Report installed separately from observed host-level enforcement."""
+        """Report truthful WorkUnit capability; Stop hooks are advisory only."""
         root = Path(codex_root) if codex_root else Path.home() / ".codex"
         hooks_path = root / "hooks.json"
         installed = False
@@ -125,28 +125,23 @@ class CodexDeployer(DeployerBase):
                     state = candidate
             except (OSError, json.JSONDecodeError):
                 state = {}
+        # Retain raw observation for compatibility diagnostics. Consumers that
+        # assess current hook health must additionally require installed.
         observed = bool(state.get("observed"))
         trusted = observed and state.get("validation_mode") != "bypass"
-        runs = state.get("runs", {})
-        same_run_validated = isinstance(runs, dict) and any(
-            isinstance(value, dict)
-            and value.get("block_observed")
-            and value.get("done_observed")
-            for value in runs.values()
-        )
-        validated = bool(
-            trusted
-            and same_run_validated
-            and state.get("hook_protocol_version") == PACTKIT_HOOK_PROTOCOL_VERSION
-            and state.get("hook_sha256") == hook_sha256
-        )
-        active = installed and validated
+        # Stop is intentionally advisory. Lifecycle recovery is provided by
+        # the persisted App Server thread plus Core-owned WorkUnit state.
+        validated = False
         return {
             "finish_guard_supported": True,
-            "completion_hook": active,
+            "protocol_version": 1,
+            "execution_mode": "resumable",
+            "verification_source": "official_app_server_live_workunit_e2e",
+            "completion_hook": False,
             "session_reentry": True,
-            "auto_resume_available": active,
-            "guarantee_level": "host" if active else "process",
+            "auto_resume_available": False,
+            "guarantee_level": "resumable",
+            "stop_hook_required": False,
             "hook_installed": installed,
             "hook_trusted": trusted,
             "hook_observed": observed,
@@ -178,7 +173,12 @@ class CodexDeployer(DeployerBase):
 
         enabled_skills = cfg.get("skills", sorted(VALID_SKILLS))
 
-        n_skills = self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
+        n_skills = self.deploy_codex_skills(
+            skills_dir,
+            enabled_skills,
+            self.profile,
+            include_portable_methods=True,
+        )
         n_commands = self.deploy_codex_command_skills(skills_dir, self.profile)
         _cleanup_legacy(skills_dir)
         # Clean up legacy prompts/ and playbooks/ directories
@@ -195,7 +195,9 @@ class CodexDeployer(DeployerBase):
         self.deploy_codex_agents_md(codex_root, self.profile)
 
         self.generate_codex_config_toml(codex_root)
-        self.deploy_stop_hook(codex_root)
+        # Stop hooks are not a correctness primitive.  Remove only PactKit's
+        # legacy entry while preserving every user-owned hook.
+        self.remove_stop_hook(codex_root)
 
         if target is None:
             self.generate_codex_project_files(Path.cwd())
@@ -207,7 +209,19 @@ class CodexDeployer(DeployerBase):
 
         manifest_path = write_deploy_manifest(codex_root, "codex", cfg)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["workflow_continuation"] = self.continuation_capabilities(codex_root)
+        capability = self.continuation_capabilities(codex_root)
+        # A deployment manifest is a snapshot of current capabilities, not an
+        # audit history. An observation from a removed advisory hook must not
+        # be published as a live observed/trusted capability.
+        if not capability["hook_installed"]:
+            capability["hook_observed"] = False
+            capability["hook_trusted"] = False
+        manifest["workflow_continuation"] = capability
+        from pactkit_codex.app_server import app_server_capability
+
+        host_capability = app_server_capability()
+        manifest["host_capabilities"].update(host_capability)
+        manifest["host_capabilities"]["manual_resume"] = False
         atomic_write(
             manifest_path,
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
@@ -422,7 +436,9 @@ class CodexDeployer(DeployerBase):
     def deploy_codex_command_skills(skills_dir, profile):
         """Deploy PDCA commands as skills/{name}/SKILL.md (unified with Claude Code)."""
         deployed = 0
-        for filename, raw_content in prompts.COMMANDS_CONTENT.items():
+        from pactkit.prompts.commands import get_deployable_commands
+
+        for filename, raw_content in get_deployable_commands().items():
             if filename in CODEX_EXCLUDED_COMMANDS:
                 continue
             cmd_name = filename.removesuffix(".md")
@@ -548,7 +564,9 @@ class CodexDeployer(DeployerBase):
             atomic_write(yaml_path, yaml_content)
 
     @staticmethod
-    def deploy_codex_skills(skills_dir, enabled_skills, profile):
+    def deploy_codex_skills(
+        skills_dir, enabled_skills, profile, include_portable_methods=False
+    ):
         """Deploy skills with Codex-specific path replacement in scripts."""
         _prefix = profile.skills_path_var
 
@@ -562,7 +580,10 @@ class CodexDeployer(DeployerBase):
         deployed = 0
 
         for sd in get_skill_manifest():
-            if sd["name"] not in enabled_set:
+            is_method = sd["name"].startswith("pactkit-method-")
+            if is_method and not include_portable_methods:
+                continue
+            if not is_method and sd["name"] not in enabled_set:
                 continue
             skill_dir = skills_dir / sd["name"]
             skill_dir.mkdir(parents=True, exist_ok=True)

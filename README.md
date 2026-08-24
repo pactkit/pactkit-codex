@@ -11,7 +11,7 @@
 **pactkit-codex** brings the [PactKit](https://github.com/pactkit/pactkit) spec-driven development workflow to OpenAI's Codex CLI. It deploys:
 
 - **AGENTS.md** — Global constitution with agent roles and PDCA routing
-- **Command prompts** — 10 PDCA workflow commands (`/project-plan`, `/project-act`, etc.)
+- **Command Skills** — PDCA workflow entries (`$project-plan`, `$project-act`, etc.)
 - **Skills** — Standalone Python scripts (visualize, board, scaffold)
 - **Rules** — Modular governance rules loaded on-demand per command
 
@@ -49,12 +49,9 @@ After running `pactkit-codex init`:
 │   ├── 01-core-protocol.md
 │   ├── 02-hierarchy-of-truth.md
 │   └── ...
-├── prompts/               # 10 PDCA command prompts
-│   ├── project-plan.md
-│   ├── project-act.md
-│   └── ...
-└── skills/                # 10 skill directories
+└── skills/                # Skills and PDCA command entries
     ├── pactkit-visualize/
+    ├── project-plan/
     ├── pactkit-board/
     └── ...
 
@@ -90,7 +87,22 @@ pactkit-codex version                 # Show version
 pactkit-codex spec-lint <file>        # Validate spec structure
 pactkit-codex doctor                  # Check project health
 pactkit-codex visualize --lazy        # Generate code dependency graphs
+pactkit-codex-work-unit run <run-id> --owner codex
+                                      # Continue Core WorkUnits in one resumable thread
+pactkit-codex-work-unit execute <run-id> --owner codex --idempotency-key <key> \
+  --receipt @receipt.json             # Compatibility: execute exactly one WorkUnit
 ```
+
+The `run` command requests a schema-constrained candidate Receipt from each Codex turn,
+persists the run-bound thread under `.pactkit/codex-sessions/`, and continues only after
+Core independently rereads paths, file contents, and validators. Rejected evidence,
+approval requests, malformed output, and host failures stop at a versioned retry boundary.
+The compatibility `execute` command still accepts an explicit `--receipt` template.
+
+The App Server bridge reports only the strongest level proved by its installed capability
+manifest. If an App Server connection, a structured Receipt, or a required approval fails,
+PactKit records a recoverable Attempt and returns the WorkUnit to Core for a
+versioned retry; it never treats a Codex final response as workflow completion.
 
 ## PDCA Workflow Commands
 

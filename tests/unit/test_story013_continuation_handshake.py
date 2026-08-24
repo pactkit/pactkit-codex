@@ -21,4 +21,6 @@ def test_codex_adapter_preserves_pre_final_protocol_and_reports_real_capability(
     capability = CodexDeployer.continuation_capabilities(codex_root)
     assert capability["finish_guard_supported"] is True
     assert capability["auto_resume_available"] is False
-    assert capability["guarantee_level"] == "process"
+    assert capability["guarantee_level"] == "resumable"
+    assert capability["execution_mode"] == "resumable"
+    assert capability["stop_hook_required"] is False

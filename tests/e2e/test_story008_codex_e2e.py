@@ -40,10 +40,10 @@ class TestAC1ArtifactCreation:
         assert (codex_deploy / "skills/pactkit-visualize/scripts/visualize.py").is_file()
 
     def test_20_skill_dirs(self, codex_deploy):
-        """R1: 25 skill directories (13 embedded + 12 PDCA commands)."""
+        """R1: 31 skill directories (19 methods/skills + 12 PDCA facades)."""
         skill_dirs = [d for d in (codex_deploy / "skills").iterdir() if d.is_dir()]
-        assert len(skill_dirs) == 25, (
-            f"Expected 25 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
+        assert len(skill_dirs) == 31, (
+            f"Expected 31 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
         )
 
     def test_10_command_skill_dirs(self, codex_deploy):

@@ -16,7 +16,7 @@ def _event(tmp_path, **overrides):
     return value
 
 
-def test_stop_handler_blocks_incomplete_run_and_allows_unmanaged_project(tmp_path, monkeypatch):
+def test_stop_handler_is_advisory_for_incomplete_and_unmanaged_projects(tmp_path, monkeypatch):
     from pactkit.continuation import ContinuationEngine
     from pactkit_codex.stop_hook import handle_stop
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
@@ -30,20 +30,25 @@ def test_stop_handler_blocks_incomplete_run_and_allows_unmanaged_project(tmp_pat
 
     result = handle_stop(_event(tmp_path))
 
-    assert result["decision"] == "block"
-    assert state["run_id"] in result["reason"]
-    assert "hypotheses_tested" in result["reason"]
+    assert result == {}
     assert engine.resolve_host_run(session_id="session-1")["run_id"] == state["run_id"]
 
 
-def test_unique_active_fallback_is_bound_for_final_completed_stop(tmp_path, monkeypatch):
+def test_unique_active_fallback_is_observed_without_binding_or_resuming(tmp_path, monkeypatch):
     from pactkit.continuation import ContinuationEngine
     from pactkit_codex.stop_hook import handle_stop
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
     engine = ContinuationEngine(tmp_path)
     state = engine.start("project-debug", evidence={"started": True})
-    assert handle_stop(_event(tmp_path, session_id="new-session"))["decision"] == "block"
+    assert handle_stop(_event(tmp_path, session_id="new-session")) == {}
+    # An advisory hook may observe a unique run but MUST NOT create a host
+    # binding or invoke the legacy continuation runner.
+    persisted = engine.read(state["run_id"])
+    assert "host_binding" not in persisted
+    assert "host_continuation" not in persisted
+    assert persisted["status"] == "in_progress"
+    assert not (tmp_path / ".pactkit" / "continuations" / "bindings").exists()
     for step in ("hypotheses_tested", "root_cause_found"):
         engine.checkpoint(state["run_id"], step_id=step, evidence={"phase": "verified"})
     engine.checkpoint(
@@ -56,8 +61,8 @@ def test_unique_active_fallback_is_bound_for_final_completed_stop(tmp_path, monk
         (tmp_path / "codex-home" / "pactkit-hook-state.json").read_text()
     )
     run_observation = observed["runs"][state["run_id"]]
-    assert run_observation["block_observed"] is True
-    assert run_observation["done_observed"] is True
+    assert run_observation["advisory_observed"] is True
+    assert observed["decision"] == "advisory"
 
 
 def test_stop_handler_allows_completed_and_ignores_message_authority(tmp_path, monkeypatch):
@@ -80,7 +85,7 @@ def test_stop_handler_allows_completed_and_ignores_message_authority(tmp_path, m
     assert result == {}
 
 
-def test_stop_handler_returns_valid_diagnostic_for_ambiguous_runs(tmp_path, monkeypatch):
+def test_stop_handler_is_advisory_for_ambiguous_runs(tmp_path, monkeypatch):
     from pactkit.continuation import ContinuationEngine
     from pactkit_codex.stop_hook import handle_stop
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
@@ -89,13 +94,9 @@ def test_stop_handler_returns_valid_diagnostic_for_ambiguous_runs(tmp_path, monk
     engine.start("project-debug", evidence={"started": True})
     engine.start("project-clarify", evidence={"started": True})
 
-    result = handle_stop(_event(tmp_path, session_id="unknown"))
-
-    assert result["decision"] == "block"
-    assert "multiple_active_runs" in result["reason"]
-    assert handle_stop(_event(
-        tmp_path, session_id="unknown", stop_hook_active=True,
-    )) == {}
+    assert handle_stop(_event(tmp_path, session_id="unknown")) == {}
+    observed = json.loads((tmp_path / "codex-home" / "pactkit-hook-state.json").read_text())
+    assert observed["reason_code"] == "multiple_active_runs"
 
 
 def test_deployer_merges_owned_stop_hook_idempotently(tmp_path):
@@ -161,24 +162,30 @@ def test_console_handler_emits_one_valid_json_object_for_invalid_input():
     )
 
     assert result.returncode == 0
-    assert json.loads(result.stdout)["decision"] == "block"
+    assert json.loads(result.stdout) == {}
     assert result.stderr == ""
 
 
-def test_full_deploy_manifest_reports_installed_not_validated(tmp_path):
+def test_full_deploy_manifest_defaults_to_no_stop_hook(tmp_path):
     from pactkit_codex.deployer import CodexDeployer
 
+    (tmp_path / "pactkit-hook-state.json").write_text(json.dumps({
+        "observed": True,
+        "validation_mode": "host",
+    }), encoding="utf-8")
     CodexDeployer().deploy(target=tmp_path)
 
     manifest = json.loads((tmp_path / ".pactkit-deployed.json").read_text())
     capability = manifest["workflow_continuation"]
-    assert capability["hook_installed"] is True
+    assert capability["hook_installed"] is False
+    assert capability["hook_observed"] is False
+    assert capability["hook_trusted"] is False
     assert capability["completion_hook"] is False
     assert capability["continuation_validated"] is False
-    assert capability["hook_sha256"]
+    assert capability["hook_sha256"] is None
 
 
-def test_hook_records_sanitized_observation_and_validates_block_then_done(tmp_path, monkeypatch):
+def test_hook_records_sanitized_advisory_observation_without_continuation(tmp_path, monkeypatch):
     from pactkit.continuation import ContinuationEngine
     from pactkit_codex.deployer import CodexDeployer
     from pactkit_codex.stop_hook import handle_stop
@@ -196,8 +203,7 @@ def test_hook_records_sanitized_observation_and_validates_block_then_done(tmp_pa
     state = engine.start("project-debug", evidence={"started": True})
     engine.bind_host_session(state["run_id"], session_id="secret-session")
 
-    blocked = handle_stop(_event(project, session_id="secret-session"))
-    assert blocked["decision"] == "block"
+    assert handle_stop(_event(project, session_id="secret-session")) == {}
     for step in ("hypotheses_tested", "root_cause_found"):
         engine.checkpoint(state["run_id"], step_id=step, evidence={"phase": "verified"})
     engine.checkpoint(
@@ -213,21 +219,22 @@ def test_hook_records_sanitized_observation_and_validates_block_then_done(tmp_pa
     assert observation["hook_sha256"] == hashlib.sha256(
         (codex_root / "hooks" / "pactkit_stop.py").read_bytes()
     ).hexdigest()
-    assert observation["runs"][state["run_id"]]["block_observed"] is True
-    assert observation["runs"][state["run_id"]]["done_observed"] is True
+    assert observation["runs"][state["run_id"]]["advisory_observed"] is True
     traces = (codex_root / "pactkit-hook-observations.jsonl").read_text().splitlines()
     assert len(traces) == 2
     assert all("secret-session" not in line and "progress only" not in line for line in traces)
     capability = CodexDeployer.continuation_capabilities(codex_root)
     assert capability["hook_observed"] is True
     assert capability["hook_trusted"] is True
-    assert capability["continuation_validated"] is True
-    assert capability["completion_hook"] is True
-    assert capability["auto_resume_available"] is True
-    assert capability["guarantee_level"] == "host"
+    assert capability["continuation_validated"] is False
+    assert capability["completion_hook"] is False
+    assert capability["stop_hook_required"] is False
+    assert capability["auto_resume_available"] is False
+    assert capability["guarantee_level"] == "resumable"
     deployed = json.loads((codex_root / ".pactkit-deployed.json").read_text())
-    assert deployed["workflow_continuation"]["completion_hook"] is True
-    assert deployed["workflow_continuation"]["continuation_validated"] is True
+    assert deployed["workflow_continuation"]["completion_hook"] is False
+    assert deployed["workflow_continuation"]["stop_hook_required"] is False
+    assert deployed["workflow_continuation"]["continuation_validated"] is False
 
     (codex_root / "hooks" / "pactkit_stop.py").write_text("changed")
     assert CodexDeployer.continuation_capabilities(codex_root)["completion_hook"] is False
@@ -246,7 +253,7 @@ def test_bypass_observation_does_not_claim_persisted_trust(tmp_path, monkeypatch
     engine = ContinuationEngine(project)
     engine.start("project-debug", evidence={"started": True})
 
-    assert handle_stop(_event(project))["decision"] == "block"
+    assert handle_stop(_event(project)) == {}
     capability = CodexDeployer.continuation_capabilities(codex_root)
     assert capability["hook_observed"] is True
     assert capability["hook_trusted"] is False
