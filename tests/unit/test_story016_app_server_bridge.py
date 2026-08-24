@@ -24,6 +24,9 @@ class _FakeProcess:
         return 0
 
 
+_PLAN_SPEC = """# STORY-slim-995: Managed Plan\n\n| Field | Value |\n|-------|-------|\n| ID | STORY-slim-995 |\n| Status | In Progress |\n| Priority | P0 |\n| Release | 2.21.0 |\n\n## Background\n\nA managed Plan workflow requires a self-contained specification fixture.\n\n## Requirements\n\n### R1: Finalize through Core (MUST)\n\nThe Core finalizer MUST validate the specification and publish its governance facts.\n\n## Acceptance Criteria\n\n### AC1: Core finalization succeeds (R1)\n\n- **Given** a lintable Spec and a valid HLD\n- **When** the managed adapter submits its terminal receipt\n- **Then** Core creates the Story, Board, context, and completion journal\n\n## Security Scope\n\n### SEC-1: Governance write integrity\n\nThe finalizer MUST validate repository evidence before writing governed projections.\n"""
+
+
 def _prepare_finalize_run(root):
     from pactkit.workflow_engine import EvidenceReceipt, WorkflowEngine
 
@@ -31,23 +34,15 @@ def _prepare_finalize_run(root):
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text("developer: test\n", encoding="utf-8")
     (root / "docs/product/stories").mkdir(parents=True, exist_ok=True)
-    source_specs = __import__("pathlib").Path(__file__).parents[2] / "../pactkit/docs/specs"
+    # Keep the fixture equivalent to an initialized project so Core's real
+    # Plan preflight validator remains part of this finalizer test.
+    (root / "docs/product/sprint_board.md").write_text(
+        "# Sprint Board\n", encoding="utf-8",
+    )
     story_id = "STORY-slim-995"
     spec = root / f"docs/specs/{story_id}.md"
     spec.parent.mkdir(parents=True, exist_ok=True)
-    spec.write_text(
-        (source_specs / "STORY-slim-20260823d854b0cf1875.md").read_text(encoding="utf-8").replace(
-            "STORY-slim-20260823d854b0cf1875", story_id,
-        ), encoding="utf-8",
-    )
-    for dependency in (
-        "STORY-slim-147", "STORY-slim-2026082381e832771d4e",
-        "STORY-slim-20260823de7e85d6042a",
-    ):
-        (spec.parent / f"{dependency}.md").write_text(
-            (source_specs / f"{dependency}.md").read_text(encoding="utf-8"),
-            encoding="utf-8",
-        )
+    spec.write_text(_PLAN_SPEC, encoding="utf-8")
     hld = root / "docs/architecture/graphs/system_design.mmd"
     hld.parent.mkdir(parents=True, exist_ok=True)
     hld.write_text("flowchart TD\n  A --> B\n", encoding="utf-8")
@@ -73,9 +68,10 @@ def _prepare_finalize_run(root):
         receipt = EvidenceReceipt.for_files(
             unit, owner="codex", root=root, files=files.get(step, []), claims=claims[step],
         )
-        assert engine.submit(
+        result = engine.submit(
             unit.unit_id, receipt, owner="codex", idempotency_key=f"s-{step}",
-        ).attempt_status == "succeeded"
+        )
+        assert result.attempt_status == "succeeded", f"{step}: {result.reason_code}"
     return engine, run, story_id
 
 
