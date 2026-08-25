@@ -100,10 +100,11 @@ class TestGenerateAgentsMd:
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
         # Should contain references to all PDCA phase commands
-        assert "/project-plan" in content
-        assert "/project-act" in content
-        assert "/project-check" in content
-        assert "/project-done" in content
+        assert "$project-plan" in content
+        assert "$project-act" in content
+        assert "$project-check" in content
+        assert "$project-done" in content
+        assert "/project-" not in content
 
     def test_r6_render_prompt_used(self, codex_root):
         """R6: Codex skills paths used (not Claude paths)."""

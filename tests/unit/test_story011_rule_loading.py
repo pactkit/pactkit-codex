@@ -57,6 +57,17 @@ class TestAC1RulesDeployedAsFiles:
             assert "claude-sonnet" not in content, f"{md_file.name} has model ref"
             assert "claude-opus" not in content, f"{md_file.name} has model ref"
 
+    def test_command_routing_uses_codex_skill_names(self, codex_root, codex_profile):
+        CodexDeployer.deploy_codex_rules(codex_root / "rules", codex_profile)
+
+        content = (codex_root / "rules" / "pactkit.md").read_text()
+        assert "commands/project-" not in content
+        assert "`$project-plan`" in content
+        assert "`$project-act`" in content
+        assert "Subagent Team" not in content
+        assert "subagent team" not in content.lower()
+        assert "current Codex session" in content
+
 
 class TestAC2CommandSkillsIncludeRuleRefs:
     """AC2: Deployed command SKILL.md files include @~/.codex/rules/ references."""

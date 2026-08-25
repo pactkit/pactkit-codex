@@ -87,22 +87,10 @@ pactkit-codex version                 # Show version
 pactkit-codex spec-lint <file>        # Validate spec structure
 pactkit-codex doctor                  # Check project health
 pactkit-codex visualize --lazy        # Generate code dependency graphs
-pactkit-codex-work-unit run <run-id> --owner codex
-                                      # Continue Core WorkUnits in one resumable thread
-pactkit-codex-work-unit execute <run-id> --owner codex --idempotency-key <key> \
-  --receipt @receipt.json             # Compatibility: execute exactly one WorkUnit
 ```
 
-The `run` command requests a schema-constrained candidate Receipt from each Codex turn,
-persists the run-bound thread under `.pactkit/codex-sessions/`, and continues only after
-Core independently rereads paths, file contents, and validators. Rejected evidence,
-approval requests, malformed output, and host failures stop at a versioned retry boundary.
-The compatibility `execute` command still accepts an explicit `--receipt` template.
-
-The App Server bridge reports only the strongest level proved by its installed capability
-manifest. If an App Server connection, a structured Receipt, or a required approval fails,
-PactKit records a recoverable Attempt and returns the WorkUnit to Core for a
-versioned retry; it never treats a Codex final response as workflow completion.
+PactKit commands run directly in the current Codex session. They do not dispatch a
+separate runner, require a run ID, or create a resumable background workflow.
 
 ## PDCA Workflow Commands
 

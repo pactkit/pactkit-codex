@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pactkit-codex"
-version = "2.22.0"
+version = "2.23.0"
 description = "PactKit adapter for OpenAI Codex CLI"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
-    "pactkit>=2.21.0",
+    "pactkit>=2.23.0,<2.24.0",
     "tomli>=1.1.0; python_version < '3.11'",
 ]
 
@@ -52,10 +52,6 @@ Issues = "https://github.com/pactkit/pactkit-codex/issues"
 
 [project.entry-points."pactkit.deployers"]
 codex = "pactkit_codex:CodexDeployer"
-
-[project.scripts]
-pactkit-codex-stop-hook = "pactkit_codex.stop_hook:main"
-pactkit-codex-work-unit = "pactkit_codex.runner:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

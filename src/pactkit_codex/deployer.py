@@ -11,20 +11,29 @@ Codex-specific features:
 - Project-level .codex/ structure
 """
 
-import hashlib
 import json
 import re
+import shutil
+import tempfile
 from pathlib import Path
 
 from pactkit import __version__, prompts
 from pactkit.config import (
+    VALID_COMMANDS,
     VALID_SKILLS,
     auto_merge_config_file,
     load_config,
 )
+from pactkit.deployment_transaction import rollback_paths
+from pactkit.generators.command_ownership import (
+    cleanup_disabled_command_skills,
+    record_deployed_command,
+    write_command_manifest,
+)
 from pactkit.generators.deploy_base import DeployerBase, register_deployer
 from pactkit.generators.deployer import (
     _cleanup_legacy,
+    _cleanup_legacy_portable_methods,
     _enforce_deploy_integrity,
     _render_prompt,
 )
@@ -42,17 +51,14 @@ CODEX_EXCLUDED_COMMANDS: frozenset[str] = frozenset()
 
 # Version marker filename (STORY-012)
 VERSION_MARKER_FILE = ".pactkit-version"
-PACTKIT_HOOK_OWNER = "pactkit.workflow.stop"
-PACTKIT_STOP_COMMAND = "pactkit-codex-stop-hook"
-PACTKIT_HOOK_PROTOCOL_VERSION = 1
-PACTKIT_HOOK_STATE_FILE = "pactkit-hook-state.json"
-PACTKIT_STOP_SCRIPT = '''\
+_LEGACY_STOP_COMMAND = "pactkit-codex-stop-hook"
+_LEGACY_STOP_LAUNCHER = """\
 #!/usr/bin/env python3
-"""Stable launcher for the PactKit Codex Stop hook."""
+\"\"\"Stable launcher for the PactKit Codex Stop hook.\"\"\"
 from pactkit_codex.stop_hook import main
 
 raise SystemExit(main())
-'''
+"""
 
 _CODEX_PROJECT_AGENTS_MD = """\
 # {project_name}
@@ -97,58 +103,33 @@ class CodexDeployer(DeployerBase):
 
     @staticmethod
     def continuation_capabilities(codex_root=None):
-        """Report truthful WorkUnit capability; Stop hooks are advisory only."""
-        root = Path(codex_root) if codex_root else Path.home() / ".codex"
-        hooks_path = root / "hooks.json"
-        installed = False
-        if hooks_path.exists():
-            try:
-                payload = json.loads(hooks_path.read_text(encoding="utf-8"))
-                entries = payload.get("hooks", {}).get("Stop", [])
-                installed = any(
-                    CodexDeployer._is_pactkit_stop_entry(item)
-                    for item in entries if isinstance(item, dict)
-                )
-            except (OSError, json.JSONDecodeError, AttributeError):
-                installed = False
-        script_path = root / "hooks" / "pactkit_stop.py"
-        hook_sha256 = (
-            hashlib.sha256(script_path.read_bytes()).hexdigest()
-            if script_path.is_file() else None
-        )
-        state = {}
-        state_path = root / PACTKIT_HOOK_STATE_FILE
-        if state_path.is_file():
-            try:
-                candidate = json.loads(state_path.read_text(encoding="utf-8"))
-                if isinstance(candidate, dict):
-                    state = candidate
-            except (OSError, json.JSONDecodeError):
-                state = {}
-        # Retain raw observation for compatibility diagnostics. Consumers that
-        # assess current hook health must additionally require installed.
-        observed = bool(state.get("observed"))
-        trusted = observed and state.get("validation_mode") != "bypass"
-        # Stop is intentionally advisory. Lifecycle recovery is provided by
-        # the persisted App Server thread plus Core-owned WorkUnit state.
-        validated = False
+        """Report the native current-session execution model.
+
+        Codex PDCA commands run in the user's active session. PactKit no
+        longer ships runners, workflow hooks, or background execution.
+        """
+        del codex_root
         return {
-            "finish_guard_supported": True,
-            "protocol_version": 1,
-            "execution_mode": "resumable",
-            "verification_source": "official_app_server_live_workunit_e2e",
+            "finish_guard_supported": False,
+            "protocol_version": 0,
+            # ``portable`` is the Core protocol guarantee.  The separate
+            # session_execution field records the host UX without inventing
+            # a new doctor/workflow-engine enum value.
+            "execution_mode": "portable",
+            "verification_source": "native_codex_session",
             "completion_hook": False,
-            "session_reentry": True,
+            "session_reentry": False,
             "auto_resume_available": False,
-            "guarantee_level": "resumable",
+            "guarantee_level": "portable",
+            "session_execution": "native_current_session",
             "stop_hook_required": False,
-            "hook_installed": installed,
-            "hook_trusted": trusted,
-            "hook_observed": observed,
-            "continuation_validated": validated,
-            "hook_protocol_version": PACTKIT_HOOK_PROTOCOL_VERSION,
-            "hook_sha256": hook_sha256,
-            "trust_review_command": None if trusted else "/hooks",
+            "hook_installed": False,
+            "hook_trusted": False,
+            "hook_observed": False,
+            "continuation_validated": False,
+            "hook_protocol_version": None,
+            "hook_sha256": None,
+            "trust_review_command": None,
         }
 
     def deploy(self, config=None, target=None):
@@ -157,13 +138,12 @@ class CodexDeployer(DeployerBase):
 
         print("🚀 PactKit Codex CLI Deployment")
 
-        skills_dir = codex_root / "skills"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-
         from pactkit.config import find_pactkit_yaml
 
         project_yaml = find_pactkit_yaml()
-        if project_yaml is not None:
+        if config is not None:
+            cfg = config
+        elif project_yaml is not None:
             auto_added = auto_merge_config_file(project_yaml)
             for item in auto_added:
                 print(f"  -> Auto-added: {item}")
@@ -172,139 +152,194 @@ class CodexDeployer(DeployerBase):
             cfg = {}
 
         enabled_skills = cfg.get("skills", sorted(VALID_SKILLS))
+        enabled_commands = cfg.get("commands")
 
-        n_skills = self.deploy_codex_skills(
-            skills_dir,
-            enabled_skills,
-            self.profile,
-            include_portable_methods=True,
+        # Validate the complete generated artifact set before touching the
+        # current installation. A rejected rule, command, skill, or AGENTS
+        # document must preserve the prior usable Codex deployment.
+        self._preflight_deploy_artifacts(
+            codex_root, enabled_skills, enabled_commands,
         )
-        n_commands = self.deploy_codex_command_skills(skills_dir, self.profile)
-        _cleanup_legacy(skills_dir)
-        # Clean up legacy prompts/ and playbooks/ directories
-        for legacy_dir in ("prompts", "playbooks"):
-            legacy_path = codex_root / legacy_dir
-            if legacy_path.is_dir():
-                import shutil
-                shutil.rmtree(legacy_path)
 
-        rules_dir = codex_root / "rules"
-        rules_dir.mkdir(parents=True, exist_ok=True)
-        self.deploy_codex_rules(rules_dir, self.profile)
+        project_root = Path.cwd() if target is None else None
+        with rollback_paths(self._transaction_paths(codex_root, project_root)):
+            skills_dir = codex_root / "skills"
+            skills_dir.mkdir(parents=True, exist_ok=True)
+            _cleanup_legacy_portable_methods(skills_dir, self.profile)
+            n_skills = self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
+            n_commands = self.deploy_codex_command_skills(
+                skills_dir, self.profile, enabled_commands=enabled_commands,
+            )
+            _cleanup_legacy(skills_dir)
+            # Legacy prompt/playbook directories have no ownership manifest.
+            # Their names alone are not deletion authority, so leave them for
+            # explicit user review instead of recursively deleting user content.
 
-        self.deploy_codex_agents_md(codex_root, self.profile)
+            rules_dir = codex_root / "rules"
+            rules_dir.mkdir(parents=True, exist_ok=True)
+            self.deploy_codex_rules(
+                rules_dir, self.profile, enabled_commands=enabled_commands,
+            )
+            self.deploy_codex_agents_md(
+                codex_root, self.profile, enabled_commands=enabled_commands,
+            )
+            self.generate_codex_config_toml(codex_root)
+            self.remove_legacy_stop_hook(codex_root)
 
-        self.generate_codex_config_toml(codex_root)
-        # Stop hooks are not a correctness primitive.  Remove only PactKit's
-        # legacy entry while preserving every user-owned hook.
-        self.remove_stop_hook(codex_root)
+            if project_root is not None:
+                self.generate_codex_project_files(project_root)
 
-        if target is None:
-            self.generate_codex_project_files(Path.cwd())
-
-        self.write_version_marker(codex_root)
-
-        # STORY-slim-139 R2: machine-readable deployment manifest
-        from pactkit.deploy_manifest import write_deploy_manifest
-
-        manifest_path = write_deploy_manifest(codex_root, "codex", cfg)
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        capability = self.continuation_capabilities(codex_root)
-        # A deployment manifest is a snapshot of current capabilities, not an
-        # audit history. An observation from a removed advisory hook must not
-        # be published as a live observed/trusted capability.
-        if not capability["hook_installed"]:
-            capability["hook_observed"] = False
-            capability["hook_trusted"] = False
-        manifest["workflow_continuation"] = capability
-        from pactkit_codex.app_server import app_server_capability
-
-        host_capability = app_server_capability()
-        manifest["host_capabilities"].update(host_capability)
-        manifest["host_capabilities"]["manual_resume"] = False
-        atomic_write(
-            manifest_path,
-            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        )
+            self.write_version_marker(codex_root)
+            self._write_deployment_manifest(codex_root, cfg)
 
         print(
             f"\n✅ Codex CLI: {n_skills} Skills, {n_commands} Commands → {codex_root}"
         )
 
+    @staticmethod
+    def _transaction_paths(codex_root, project_root=None):
+        """Return the exact Codex paths a deployment may mutate."""
+        from pactkit.portable_methods import get_portable_methods
+        from pactkit.prompts.skills import get_skill_manifest
+
+        skill_files = []
+        for entry in get_skill_manifest():
+            root = codex_root / "skills" / entry["name"]
+            skill_files.append(root / "SKILL.md")
+            if entry["script_name"]:
+                skill_files.append(root / "scripts" / entry["script_name"])
+        skill_files.extend(
+            codex_root / "skills" / entry["name"] / "SKILL.md"
+            for entry in get_portable_methods()
+        )
+        skill_files.extend(
+            codex_root / "skills" / name / "SKILL.md"
+            for name in VALID_COMMANDS
+        )
+        paths = [
+            *skill_files,
+            codex_root / "skills" / "pactkit_tools.py",
+            codex_root / "skills" / ".pactkit-command-manifest.json",
+            *(codex_root / "rules" / filename for filename in RULES_FILES.values()),
+            codex_root / "rules" / CREDENTIAL_SAFETY_FILE,
+            codex_root / "AGENTS.md",
+            codex_root / "config.toml",
+            codex_root / "hooks.json",
+            codex_root / "hooks" / "pactkit_stop.py",
+            codex_root / VERSION_MARKER_FILE,
+            codex_root / ".pactkit-deployed.json",
+        ]
+        if project_root is not None:
+            paths.extend((
+                project_root / "AGENTS.md",
+                project_root / ".codex" / "AGENTS.local.md",
+                project_root / ".codex" / "pactkit.yaml",
+            ))
+        return tuple(paths)
+
+    def _write_deployment_manifest(self, codex_root, cfg):
+        """Write the Core manifest and Codex-native capability projection."""
+        from pactkit.deploy_manifest import write_deploy_manifest
+
+        manifest_path = write_deploy_manifest(codex_root, "codex", cfg)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        capability = self.continuation_capabilities(codex_root)
+        if not capability["hook_installed"]:
+            capability["hook_observed"] = False
+            capability["hook_trusted"] = False
+        manifest["workflow_continuation"] = capability
+        manifest["host_capabilities"] = {
+            "protocol_version": 0,
+            "verification_source": "native_codex_session",
+            "instructions_discovery": True,
+            "skills_discovery": True,
+            "structured_results": False,
+            "tool_execution": False,
+            "approval": False,
+            "lifecycle_events": False,
+            "thread_resume": False,
+            "turn_steer": False,
+            "background_execution": False,
+            "cancellation": False,
+            "e2e_validated": False,
+            "execution_mode": "portable",
+            "manual_resume": False,
+            "session_execution": "native_current_session",
+        }
+        atomic_write(
+            manifest_path,
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        )
+
+    def _preflight_deploy_artifacts(self, codex_root, enabled_skills, enabled_commands):
+        """Render all managed artifacts in isolation before live deployment."""
+        codex_root.parent.mkdir(parents=True, exist_ok=True)
+        stage_root = Path(tempfile.mkdtemp(prefix=".pactkit-stage-", dir=codex_root.parent))
+        try:
+            skills_dir = stage_root / "skills"
+            self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
+            self.deploy_codex_command_skills(
+                skills_dir, self.profile, enabled_commands=enabled_commands,
+            )
+            self.deploy_codex_rules(
+                stage_root / "rules", self.profile, enabled_commands=enabled_commands,
+            )
+            self.deploy_codex_agents_md(
+                stage_root, self.profile, enabled_commands=enabled_commands,
+            )
+        finally:
+            shutil.rmtree(stage_root, ignore_errors=True)
+
     # --- Version tracking ---
 
     @staticmethod
-    def deploy_stop_hook(codex_root):
-        """Merge the PactKit-owned Stop handler without replacing user hooks."""
-        codex_root = Path(codex_root)
-        hooks_dir = codex_root / "hooks"
-        hooks_dir.mkdir(parents=True, exist_ok=True)
-        script_path = hooks_dir / "pactkit_stop.py"
-        atomic_write(script_path, PACTKIT_STOP_SCRIPT)
-
-        hooks_path = codex_root / "hooks.json"
-        if hooks_path.exists():
-            try:
-                payload = json.loads(hooks_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-                raise ValueError("existing Codex hooks.json is invalid") from exc
-            if not isinstance(payload, dict):
-                raise ValueError("existing Codex hooks.json must be an object")
-        else:
-            payload = {"description": "Codex lifecycle hooks"}
-        hooks = payload.setdefault("hooks", {})
-        if not isinstance(hooks, dict):
-            raise ValueError("existing Codex hooks field must be an object")
-        stop_entries = hooks.setdefault("Stop", [])
-        if not isinstance(stop_entries, list):
-            raise ValueError("existing Codex Stop hooks must be a list")
-        owned = {
-            "hooks": [{
-                "type": "command",
-                "command": PACTKIT_STOP_COMMAND,
-                "timeout": 30,
-                "statusMessage": "Checking PactKit workflow completion",
-            }],
-        }
-        retained = [
-            item for item in stop_entries
-            if not CodexDeployer._is_pactkit_stop_entry(item)
-        ]
-        hooks["Stop"] = [*retained, owned]
-        atomic_write(hooks_path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
-        return script_path
-
-    @staticmethod
-    def remove_stop_hook(codex_root):
-        """Remove only PactKit's Stop entry and unreferenced launcher."""
+    def remove_legacy_stop_hook(codex_root):
+        """Remove only the exact deprecated PactKit Stop hook."""
         codex_root = Path(codex_root)
         hooks_path = codex_root / "hooks.json"
         if hooks_path.is_file():
             try:
                 payload = json.loads(hooks_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-                raise ValueError("existing Codex hooks.json is invalid") from exc
+            except (OSError, json.JSONDecodeError):
+                print("  ⚠️ existing Codex hooks.json is invalid — legacy hook left unchanged")
+                return
+            if not isinstance(payload, dict):
+                print(
+                    "  ⚠️ existing Codex hooks.json must be a JSON object "
+                    "— legacy hook left unchanged"
+                )
+                return
             hooks = payload.get("hooks")
             if isinstance(hooks, dict):
                 entries = hooks.get("Stop")
                 if isinstance(entries, list):
-                    hooks["Stop"] = [
-                        item for item in entries
-                        if not CodexDeployer._is_pactkit_stop_entry(item)
-                    ]
-                    if not hooks["Stop"]:
-                        hooks.pop("Stop")
-                atomic_write(
-                    hooks_path,
-                    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-                )
+                    cleaned_entries = []
+                    changed = False
+                    for item in entries:
+                        cleaned = CodexDeployer._remove_legacy_stop_handlers(item)
+                        changed = changed or cleaned is not item
+                        if cleaned is not None:
+                            cleaned_entries.append(cleaned)
+                    if changed:
+                        if cleaned_entries:
+                            hooks["Stop"] = cleaned_entries
+                        else:
+                            hooks.pop("Stop")
+                        atomic_write(
+                            hooks_path,
+                            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                        )
         script_path = codex_root / "hooks" / "pactkit_stop.py"
         if script_path.is_file():
-            script_path.unlink()
+            try:
+                if script_path.read_text(encoding="utf-8") == _LEGACY_STOP_LAUNCHER:
+                    script_path.unlink()
+            except OSError:
+                pass
 
     @staticmethod
-    def _is_pactkit_stop_entry(item):
-        """Recognize only PactKit's exact command without schema extensions."""
+    def _is_legacy_stop_entry(item):
+        """Recognize only the previous PactKit command, never a user hook."""
         if not isinstance(item, dict):
             return False
         handlers = item.get("hooks")
@@ -312,10 +347,36 @@ class CodexDeployer(DeployerBase):
             isinstance(handlers, list)
             and any(
                 isinstance(handler, dict)
-                and handler.get("command") == PACTKIT_STOP_COMMAND
+                and handler.get("command") == _LEGACY_STOP_COMMAND
                 for handler in handlers
             )
         )
+
+    @staticmethod
+    def _remove_legacy_stop_handlers(item):
+        """Return a Stop entry with only PactKit's old handler removed.
+
+        A Stop entry can contain handlers from several tools.  The old PactKit
+        command is the only owned element, so a mixed entry remains in place
+        with its user handlers untouched.
+        """
+        if not isinstance(item, dict):
+            return item
+        handlers = item.get("hooks")
+        if not isinstance(handlers, list):
+            return item
+        retained = [
+            handler for handler in handlers
+            if not (
+                isinstance(handler, dict)
+                and handler.get("command") == _LEGACY_STOP_COMMAND
+            )
+        ]
+        if len(retained) == len(handlers):
+            return item
+        if not retained:
+            return None
+        return {**item, "hooks": retained}
 
     @staticmethod
     def write_version_marker(codex_root, version=None):
@@ -334,7 +395,7 @@ class CodexDeployer(DeployerBase):
     # --- Codex-specific deployment methods ---
 
     @staticmethod
-    def deploy_codex_rules(rules_dir, profile):
+    def deploy_codex_rules(rules_dir, profile, enabled_commands=None):
         """Deploy rule modules as separate files to ~/.codex/rules/ with brand replacement."""
         CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/", "~/.config/opencode/"]
 
@@ -350,6 +411,24 @@ class CodexDeployer(DeployerBase):
             content = CodexDeployer.strip_model_references(content)
             content = DeployerBase.strip_excluded_command_references(content, profile)
             content = _replace_cli_with_scripts(content)
+            content = _filter_codex_command_reference_sections(
+                content, enabled_commands,
+            )
+            # The shared routing table describes the Claude Team variant of
+            # Sprint. Codex ships a current-session sequential skill instead.
+            if filename == "pactkit.md":
+                content = content.replace(
+                    "- **Role**: Team Lead (Orchestrator)",
+                    "- **Role**: Current-session PDCA coordinator",
+                )
+                content = content.replace(
+                    "- **Goal**: Automated PDCA Sprint orchestration via Subagent Team.",
+                    "- **Goal**: Sequential PDCA for multiple Stories in the current Codex session.",
+                )
+                content = content.replace(
+                    "Sprint orchestrates multiple stories via subagent team; overkill for one story.",
+                    "Sprint processes multiple Stories sequentially in the current session; overkill for one story.",
+                )
             _enforce_deploy_integrity(content, profile, f"rule:{filename}")
             atomic_write(rules_dir / filename, content + "\n")
 
@@ -360,7 +439,7 @@ class CodexDeployer(DeployerBase):
                          "NEVER commit secrets to version control.\n")
 
     @staticmethod
-    def deploy_codex_agents_md(codex_root, profile):
+    def deploy_codex_agents_md(codex_root, profile, enabled_commands=None):
         """Generate AGENTS.md with rules index table for Codex CLI (single-agent, 10KB budget)."""
         MAX_SIZE = 10 * 1024
         CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/"]
@@ -402,19 +481,26 @@ class CodexDeployer(DeployerBase):
         lines.append("")
         lines.append("| Phase | Command | Role |")
         lines.append("|-------|---------|------|")
-        lines.append("| Plan | `/project-plan` | system-architect |")
-        lines.append("| Plan | `/project-design` | product-designer |")
-        lines.append("| Plan | `/project-clarify` | system-architect |")
-        lines.append("| Act | `/project-act` | senior-developer |")
-        lines.append("| Act | `/project-hotfix` | senior-developer |")
-        lines.append("| Check | `/project-check` | qa-engineer |")
-        lines.append("| Done | `/project-done` | repo-maintainer |")
-        lines.append("| Done | `/project-release` | repo-maintainer |")
-        lines.append("| Done | `/project-pr` | repo-maintainer |")
-        lines.append("| Bootstrap | `/project-init` | system-architect |")
+        routes = (
+            ("Plan", "project-plan", "system-architect"),
+            ("Plan", "project-design", "product-designer"),
+            ("Plan", "project-clarify", "system-architect"),
+            ("Act", "project-act", "senior-developer"),
+            ("Act", "project-hotfix", "senior-developer"),
+            ("Check", "project-check", "qa-engineer"),
+            ("Done", "project-done", "repo-maintainer"),
+            ("Done", "project-release", "repo-maintainer"),
+            ("Done", "project-pr", "repo-maintainer"),
+            ("Bootstrap", "project-init", "system-architect"),
+        )
+        enabled = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
+        for phase, command, role in routes:
+            if command in enabled:
+                lines.append(f"| {phase} | `${command}` | {role} |")
         lines.append("")
 
-        lines.append("> **TIP**: Use `/project-init` to set up project governance.")
+        if "project-init" in enabled:
+            lines.append("> **TIP**: Use `$project-init` to set up project governance.")
         lines.append("")
 
         raw_content = _render_prompt("\n".join(lines), profile)
@@ -433,15 +519,21 @@ class CodexDeployer(DeployerBase):
         atomic_write(codex_root / "AGENTS.md", raw_content)
 
     @staticmethod
-    def deploy_codex_command_skills(skills_dir, profile):
+    def deploy_codex_command_skills(skills_dir, profile, enabled_commands=None):
         """Deploy PDCA commands as skills/{name}/SKILL.md (unified with Claude Code)."""
         deployed = 0
+        from pactkit.config import VALID_COMMANDS
         from pactkit.prompts.commands import get_deployable_commands
+
+        enabled = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
+        rendered: dict[str, str] = {}
 
         for filename, raw_content in get_deployable_commands().items():
             if filename in CODEX_EXCLUDED_COMMANDS:
                 continue
             cmd_name = filename.removesuffix(".md")
+            if cmd_name not in enabled:
+                continue
 
             # Extract description from original frontmatter, then strip it
             description = cmd_name
@@ -455,6 +547,9 @@ class CodexDeployer(DeployerBase):
                     content = parts[2].lstrip("\n")
 
             content = _render_prompt(content, profile)
+            if cmd_name == "project-sprint":
+                description = "Sequential PDCA in the current Codex session"
+                content = _codex_single_session_sprint()
 
             # Path replacement: Claude/OpenCode → Codex
             content = content.replace("~/.claude/skills/", "~/.codex/skills/")
@@ -484,11 +579,43 @@ class CodexDeployer(DeployerBase):
             skill_content = frontmatter + "\n".join(refs) + "\n\n" + content
             _enforce_deploy_integrity(skill_content, profile, f"command_skill:{cmd_name}")
 
-            skill_dir = skills_dir / cmd_name
-            skill_dir.mkdir(parents=True, exist_ok=True)
-            atomic_write(skill_dir / "SKILL.md", skill_content)
-            deployed += 1
+            rendered[cmd_name] = skill_content
 
+        # Rendering/validation succeeded. Capture the previous ownership but
+        # do not delete anything until selected commands and their new manifest
+        # are durable. A later storage failure can then roll back writes while
+        # leaving the prior usable selection untouched.
+        previous = cleanup_disabled_command_skills(
+            skills_dir, set(VALID_COMMANDS), VALID_COMMANDS,
+        )
+        manifest = {name: digest for name, digest in previous.items() if name in enabled}
+        snapshots: dict[Path, bytes | None] = {}
+        try:
+            for cmd_name, skill_content in rendered.items():
+                skill_path = skills_dir / cmd_name / "SKILL.md"
+                snapshots[skill_path] = skill_path.read_bytes() if skill_path.is_file() else None
+                atomic_write(skill_path, skill_content)
+                record_deployed_command(manifest, cmd_name, skill_path)
+                deployed += 1
+            write_command_manifest(skills_dir, manifest)
+        except Exception:
+            for skill_path, previous_content in reversed(tuple(snapshots.items())):
+                if previous_content is None:
+                    skill_path.unlink(missing_ok=True)
+                    try:
+                        skill_path.parent.rmdir()
+                    except OSError:
+                        pass
+                else:
+                    atomic_write(skill_path, previous_content.decode("utf-8"))
+            raise
+
+        # The new ownership record is durable. Retire only unchanged files
+        # proven owned by the previous manifest; failed removals remain safe
+        # unmanaged stale files rather than damaging the new deployment.
+        cleanup_disabled_command_skills(
+            skills_dir, enabled, VALID_COMMANDS, manifest_entries=previous,
+        )
         return deployed
 
     @staticmethod
@@ -564,9 +691,7 @@ class CodexDeployer(DeployerBase):
             atomic_write(yaml_path, yaml_content)
 
     @staticmethod
-    def deploy_codex_skills(
-        skills_dir, enabled_skills, profile, include_portable_methods=False
-    ):
+    def deploy_codex_skills(skills_dir, enabled_skills, profile):
         """Deploy skills with Codex-specific path replacement in scripts."""
         _prefix = profile.skills_path_var
 
@@ -580,10 +705,7 @@ class CodexDeployer(DeployerBase):
         deployed = 0
 
         for sd in get_skill_manifest():
-            is_method = sd["name"].startswith("pactkit-method-")
-            if is_method and not include_portable_methods:
-                continue
-            if not is_method and sd["name"] not in enabled_set:
+            if sd["name"] not in enabled_set:
                 continue
             skill_dir = skills_dir / sd["name"]
             skill_dir.mkdir(parents=True, exist_ok=True)
@@ -732,6 +854,48 @@ _VIZ_SCRIPT = "python3 ~/.codex/skills/pactkit-visualize/scripts/visualize.py"
 _BOARD_SCRIPT = "python3 ~/.codex/skills/pactkit-board/scripts/board.py"
 _SCAFFOLD_SCRIPT = "python3 ~/.codex/skills/pactkit-scaffold/scripts/scaffold.py"
 
+
+def _codex_single_session_sprint():
+    """Return the Codex-native Sprint playbook.
+
+    Codex command skills run in the active conversation.  Keep this separate
+    from the Claude Team prompt so an unavailable orchestration API never
+    leaks into a supposedly sequential fallback.
+    """
+    return """# Command: Sprint (Current-Session PDCA)
+- **Usage**: `$project-sprint "$ARGUMENTS"`
+- **Execution**: Complete every stage in this active Codex session. Do not
+  create a team, dispatch a runner, open a background workflow, or require a
+  separate session.
+
+## Single-story mode
+
+When `$ARGUMENTS` names a new requirement, run these skills in order in the
+current session and carry their real outputs forward:
+
+1. `$project-plan "$ARGUMENTS"` — create or update the Spec and Story.
+2. `$project-act "<STORY-ID>"` — implement with tests.
+3. `$project-check "<STORY-ID>"` — verify the implementation and Spec.
+4. `$project-done "<STORY-ID>"` — perform the close-out only after Check
+   passes.
+
+Stop at the failing stage and report the evidence needed to resume in this
+same session. Checkpoints are optional handover context; they never block a
+later command or require a run ID.
+
+## Backlog mode
+
+With empty `$ARGUMENTS`, inspect the board and run eligible Stories one at a
+time through Plan → Act → Check → Done. Before starting a Story, print the
+order and touched paths. Never execute Stories in parallel in this skill.
+
+## Completion
+
+Report the Spec, tests run, changed files, and any remaining follow-up. Do not
+claim completion from an agent response alone; use the relevant command's
+normal verification evidence.
+"""
+
 # CLI subcommands that map to skill scripts (STORY-slim-145 R3: lossy CLI
 # prefix replacements for regression/lint/context/clean/visualize/guard/
 # doctor/update REMOVED — Codex is CLIPolicy.PREFERRED, so canonical `pactkit`
@@ -746,7 +910,7 @@ _CLI_TO_SCRIPT = [
 
 
 def _replace_cli_with_scripts(content):
-    """Replace pactkit CLI and bare visualize commands with direct script paths."""
+    """Normalize command references to Codex-native skills and scripts."""
     for old, new in _CLI_TO_SCRIPT:
         content = content.replace(old, new)
     # Handle backtick-wrapped bare `visualize` in inline references
@@ -759,7 +923,34 @@ def _replace_cli_with_scripts(content):
     content = re.sub(r'`/project-', '`$project-', content)
     content = re.sub(r'"/project-', '"$project-', content)
     content = re.sub(r"'/project-", "'$project-", content)
+    # Core routing tables describe classic commands as files. Codex deploys
+    # those commands as discoverable skills, so a file path would send users
+    # to a location that does not exist in their installed configuration.
+    content = re.sub(
+        r"`commands/(project-[a-z-]+)\.md`",
+        r"`$\1`",
+        content,
+    )
     return content
+
+
+def _filter_codex_command_reference_sections(content, enabled_commands=None):
+    """Remove command references that selective deployment omitted.
+
+    The global command index must never point users at a skill that was
+    intentionally excluded from the current Codex installation.
+    """
+    if enabled_commands is None:
+        return content
+    enabled = set(enabled_commands)
+    disabled = set(VALID_COMMANDS) - enabled
+    retained = []
+    for line in content.splitlines():
+        mentioned = set(re.findall(r"\$?(project-[a-z-]+)", line))
+        if mentioned & disabled:
+            continue
+        retained.append(line)
+    return "\n".join(retained)
 
 
 
