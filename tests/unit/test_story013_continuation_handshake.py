@@ -32,6 +32,7 @@ def test_codex_deployed_core_rule_makes_context_optional(tmp_path):
     rules = tmp_path / "rules"
     CodexDeployer.deploy_codex_rules(rules, get_profile("codex"))
 
-    content = (rules / "pactkit.md").read_text(encoding="utf-8").lower()
-    assert "optional history" in content
-    assert "current-session work" in content
+    content = (rules / "pactkit-runtime.md").read_text(encoding="utf-8").lower()
+    assert "historical workflow records" in content
+    assert "never exclusive locks" in content
+    assert "current host and current session" in content

@@ -1,8 +1,8 @@
 """Tests for STORY-004: Deploy PDCA Commands as Codex Skills.
 
 Tests that deploy_codex_command_skills() creates all command skill dirs,
-each with a SKILL.md containing @~/.codex/rules/ references, no Claude
-paths, and no Anthropic model names.
+each with a self-contained SKILL.md, no Claude paths, and no Anthropic
+model names.
 """
 
 import pytest
@@ -64,12 +64,15 @@ class TestCodexCommandSkills:
         for cmd in EXPECTED_COMMANDS:
             assert (skills_dir / cmd / "SKILL.md").is_file(), f"{cmd}/SKILL.md missing"
 
-    def test_ac2_rules_references_present(self, skills_dir):
-        """AC2: Each SKILL.md has @~/.codex/rules/ references at the top."""
+    def test_ac2_rules_are_composed_into_skill(self, skills_dir):
+        """AC2: Each SKILL.md contains its active PactKit contract."""
         self._deploy(skills_dir)
         for cmd in EXPECTED_COMMANDS:
             content = (skills_dir / cmd / "SKILL.md").read_text()
-            assert "@~/.codex/rules/" in content, f"{cmd}/SKILL.md missing @~/.codex/rules/ references"
+            assert "## Active PactKit Contract" in content
+            assert "# PDCA Lifecycle" in content
+            assert "# Credential Safety" not in content
+            assert "@~/.codex/rules/" not in content
 
     def test_ac3_no_claude_paths(self, skills_dir):
         """AC3: No ~/.claude/ paths remain."""
@@ -111,11 +114,9 @@ class TestCodexCommandSkills:
             content = (skills_dir / cmd / "SKILL.md").read_text()
             assert "Agent(model=" not in content, f"{cmd}/SKILL.md has Agent(model="
 
-    def test_credential_rule_in_every_command(self, skills_dir):
-        """Each command SKILL.md references the credential safety rule."""
+    def test_credential_rule_is_not_duplicated_in_commands(self, skills_dir):
+        """Credential safety is inherited from the global Runtime."""
         self._deploy(skills_dir)
         for cmd in EXPECTED_COMMANDS:
             content = (skills_dir / cmd / "SKILL.md").read_text()
-            assert "09-credential-safety.md" in content, (
-                f"{cmd}/SKILL.md missing credential safety rule reference"
-            )
+            assert "# Credential Safety" not in content

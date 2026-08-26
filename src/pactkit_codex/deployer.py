@@ -11,16 +11,19 @@ Codex-specific features:
 - Project-level .codex/ structure
 """
 
+import hashlib
 import json
 import re
 import shutil
 import tempfile
 from pathlib import Path
 
-from pactkit import __version__, prompts
+from pactkit import __version__
 from pactkit.config import (
+    DEFAULT_RULE_IDS,
     VALID_COMMANDS,
     VALID_SKILLS,
+    activate_pactkit_maintainer_overlay,
     auto_merge_config_file,
     load_config,
 )
@@ -38,10 +41,13 @@ from pactkit.generators.deployer import (
     _render_prompt,
 )
 from pactkit.profiles import get_profile
+from pactkit.prompts.guides import GUIDES_FILES
 from pactkit.prompts.rules import (
+    COMMAND_CONDITIONAL_RULES_MAP,
     COMMAND_RULES_MAP,
-    CREDENTIAL_SAFETY_FILE,
+    RULE_DEFINITIONS,
     RULES_FILES,
+    normalize_rule_id,
 )
 from pactkit.utils import atomic_write
 
@@ -150,6 +156,7 @@ class CodexDeployer(DeployerBase):
             cfg = load_config(project_yaml)
         else:
             cfg = {}
+        cfg = activate_pactkit_maintainer_overlay(cfg, Path.cwd())
 
         enabled_skills = cfg.get("skills", sorted(VALID_SKILLS))
         enabled_commands = cfg.get("commands")
@@ -158,17 +165,23 @@ class CodexDeployer(DeployerBase):
         # current installation. A rejected rule, command, skill, or AGENTS
         # document must preserve the prior usable Codex deployment.
         self._preflight_deploy_artifacts(
-            codex_root, enabled_skills, enabled_commands,
+            codex_root, enabled_skills, enabled_commands, cfg.get("rules", sorted(DEFAULT_RULE_IDS)),
         )
 
         project_root = Path.cwd() if target is None else None
         with rollback_paths(self._transaction_paths(codex_root, project_root)):
+            self._cleanup_stale_command_references(
+                codex_root, enabled_commands,
+                cfg.get("rules", sorted(DEFAULT_RULE_IDS)),
+            )
             skills_dir = codex_root / "skills"
             skills_dir.mkdir(parents=True, exist_ok=True)
             _cleanup_legacy_portable_methods(skills_dir, self.profile)
             n_skills = self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
             n_commands = self.deploy_codex_command_skills(
                 skills_dir, self.profile, enabled_commands=enabled_commands,
+                maintainer_overlay=cfg.get("_pactkit_self_development", False),
+                enabled_rules=cfg.get("rules", sorted(DEFAULT_RULE_IDS)),
             )
             _cleanup_legacy(skills_dir)
             # Legacy prompt/playbook directories have no ownership manifest.
@@ -179,9 +192,11 @@ class CodexDeployer(DeployerBase):
             rules_dir.mkdir(parents=True, exist_ok=True)
             self.deploy_codex_rules(
                 rules_dir, self.profile, enabled_commands=enabled_commands,
+                enabled_rules=cfg.get("rules", sorted(DEFAULT_RULE_IDS)),
             )
             self.deploy_codex_agents_md(
                 codex_root, self.profile, enabled_commands=enabled_commands,
+                enabled_rules=cfg.get("rules", sorted(DEFAULT_RULE_IDS)),
             )
             self.generate_codex_config_toml(codex_root)
             self.remove_legacy_stop_hook(codex_root)
@@ -216,12 +231,41 @@ class CodexDeployer(DeployerBase):
             codex_root / "skills" / name / "SKILL.md"
             for name in VALID_COMMANDS
         )
+        for command, rule_ids in COMMAND_CONDITIONAL_RULES_MAP.items():
+            for rule_id in rule_ids:
+                skill_files.append(
+                    codex_root / "skills" / command / "references" / "rules"
+                    / f"{rule_id}.md"
+                )
+        skill_files.extend(
+            codex_root / "skills" / "project-act" / "references"
+            / "guides" / filename
+            for filename in GUIDES_FILES
+        )
+        skill_files.extend(
+            codex_root / "skills" / "project-sprint" / "references"
+            / "phases" / f"{phase}.md"
+            for phase in ("plan", "act", "check", "done")
+        )
+        skill_files.extend(
+            path.with_suffix(path.suffix + ".pactkit-new")
+            for path in tuple(skill_files)
+            if "references" in path.parts
+        )
+        skill_files.extend(
+            codex_root / "skills" / "_rules" / "guides" / filename
+            for filename in GUIDES_FILES
+        )
         paths = [
             *skill_files,
             codex_root / "skills" / "pactkit_tools.py",
             codex_root / "skills" / ".pactkit-command-manifest.json",
-            *(codex_root / "rules" / filename for filename in RULES_FILES.values()),
-            codex_root / "rules" / CREDENTIAL_SAFETY_FILE,
+            *(
+                (codex_root / "rules" / filename)
+                if rule_id == "runtime"
+                else (codex_root / "skills" / "_rules" / filename)
+                for rule_id, filename in RULES_FILES.items()
+            ),
             codex_root / "AGENTS.md",
             codex_root / "config.toml",
             codex_root / "hooks.json",
@@ -236,6 +280,68 @@ class CodexDeployer(DeployerBase):
                 project_root / ".codex" / "pactkit.yaml",
             ))
         return tuple(paths)
+
+    @staticmethod
+    def _cleanup_stale_command_references(
+        codex_root: Path, enabled_commands, enabled_rules,
+    ) -> None:
+        """Retire stale command-local references with manifest-backed ownership."""
+        manifest_path = codex_root / ".pactkit-deployed.json"
+        if not manifest_path.is_file():
+            return
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            previous_hashes = payload.get("files", {})
+        except (OSError, ValueError, TypeError):
+            return
+        if not isinstance(previous_hashes, dict):
+            return
+
+        commands = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
+        configured = sorted(DEFAULT_RULE_IDS) if enabled_rules is None else enabled_rules
+        rule_ids = {
+            normalized
+            for rule_id in configured
+            if (normalized := normalize_rule_id(rule_id)) is not None
+        }
+        desired = {
+            f"skills/{command}/references/rules/{rule_id}.md"
+            for command, candidates in COMMAND_CONDITIONAL_RULES_MAP.items()
+            if command in commands
+            for rule_id in candidates
+            if rule_id in rule_ids
+        }
+        if "project-act" in commands:
+            desired.update(
+                f"skills/project-act/references/guides/{filename}"
+                for filename in GUIDES_FILES
+            )
+
+        prefixes = (
+            "skills/project-",
+            "skills/_rules/",
+        )
+        for relative, expected_hash in previous_hashes.items():
+            if not isinstance(relative, str) or relative in desired:
+                continue
+            is_reference = (
+                relative.startswith(prefixes[0]) and "/references/" in relative
+            ) or relative.startswith(prefixes[1])
+            if not is_reference or not isinstance(expected_hash, str):
+                continue
+            path = codex_root / relative
+            if (
+                path.is_file()
+                and hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash
+            ):
+                path.unlink()
+                parent = path.parent
+                while parent not in (codex_root / "skills", codex_root):
+                    try:
+                        parent.rmdir()
+                    except OSError:
+                        break
+                    parent = parent.parent
 
     def _write_deployment_manifest(self, codex_root, cfg):
         """Write the Core manifest and Codex-native capability projection."""
@@ -271,7 +377,7 @@ class CodexDeployer(DeployerBase):
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         )
 
-    def _preflight_deploy_artifacts(self, codex_root, enabled_skills, enabled_commands):
+    def _preflight_deploy_artifacts(self, codex_root, enabled_skills, enabled_commands, enabled_rules):
         """Render all managed artifacts in isolation before live deployment."""
         codex_root.parent.mkdir(parents=True, exist_ok=True)
         stage_root = Path(tempfile.mkdtemp(prefix=".pactkit-stage-", dir=codex_root.parent))
@@ -280,12 +386,16 @@ class CodexDeployer(DeployerBase):
             self.deploy_codex_skills(skills_dir, enabled_skills, self.profile)
             self.deploy_codex_command_skills(
                 skills_dir, self.profile, enabled_commands=enabled_commands,
+                maintainer_overlay=enabled_rules and "pactkit-maintainer" in enabled_rules,
+                enabled_rules=enabled_rules,
             )
             self.deploy_codex_rules(
                 stage_root / "rules", self.profile, enabled_commands=enabled_commands,
+                enabled_rules=enabled_rules,
             )
             self.deploy_codex_agents_md(
                 stage_root, self.profile, enabled_commands=enabled_commands,
+                enabled_rules=enabled_rules,
             )
         finally:
             shutil.rmtree(stage_root, ignore_errors=True)
@@ -395,12 +505,74 @@ class CodexDeployer(DeployerBase):
     # --- Codex-specific deployment methods ---
 
     @staticmethod
-    def deploy_codex_rules(rules_dir, profile, enabled_commands=None):
-        """Deploy rule modules as separate files to ~/.codex/rules/ with brand replacement."""
+    def deploy_codex_rules(rules_dir, profile, enabled_commands=None, enabled_rules=None):
+        """Deploy only global rules; command-scoped rules are skill references."""
         CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/", "~/.config/opencode/"]
+        configured = sorted(DEFAULT_RULE_IDS) if enabled_rules is None else enabled_rules
+        enabled_ids = {
+            normalized
+            for rule_id in configured
+            if (normalized := normalize_rule_id(rule_id)) is not None
+        }
 
-        for key, filename in RULES_FILES.items():
-            content = prompts.RULES_MODULES.get(key, "")
+        codex_root = rules_dir.parent
+        previous_hashes = {}
+        manifest_path = codex_root / ".pactkit-deployed.json"
+        if manifest_path.is_file():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                files = manifest.get("files", {})
+                if isinstance(files, dict):
+                    previous_hashes = files
+            except (OSError, ValueError, TypeError):
+                pass
+
+        # Selective deploys describe the desired projection. Remove a disabled
+        # rule only when the prior manifest proves ownership of unchanged bytes.
+        enabled_paths = {
+            (Path("rules") / RULE_DEFINITIONS[rule_id].filename).as_posix()
+            for rule_id in enabled_ids
+            if RULE_DEFINITIONS[rule_id].load_policy == "global"
+        }
+        for definition in RULE_DEFINITIONS.values():
+            destination = rules_dir / definition.filename
+            relative = (Path("rules") / definition.filename).as_posix()
+            expected_hash = previous_hashes.get(relative)
+            if relative in enabled_paths or not destination.is_file() or not expected_hash:
+                continue
+            if hashlib.sha256(destination.read_bytes()).hexdigest() == expected_hash:
+                destination.unlink()
+
+        # Before skill-local references existed, Codex stored on-demand files
+        # under skills/_rules. Retire only files whose previous manifest hash
+        # still matches; untracked or user-modified content is preserved.
+        legacy_root = codex_root / "skills" / "_rules"
+        for relative, expected_hash in previous_hashes.items():
+            if not relative.startswith("skills/_rules/"):
+                continue
+            legacy = codex_root / relative
+            if (
+                legacy.is_file()
+                and hashlib.sha256(legacy.read_bytes()).hexdigest() == expected_hash
+            ):
+                legacy.unlink()
+        if legacy_root.is_dir():
+            for directory in sorted(legacy_root.rglob("*"), reverse=True):
+                if directory.is_dir():
+                    try:
+                        directory.rmdir()
+                    except OSError:
+                        pass
+            try:
+                legacy_root.rmdir()
+            except OSError:
+                pass
+
+        for definition in RULE_DEFINITIONS.values():
+            if definition.id not in enabled_ids or definition.load_policy != "global":
+                continue
+            filename = definition.filename
+            content = definition.content
             if not content:
                 continue
             content = content.strip()
@@ -414,94 +586,54 @@ class CodexDeployer(DeployerBase):
             content = _filter_codex_command_reference_sections(
                 content, enabled_commands,
             )
-            # The shared routing table describes the Claude Team variant of
-            # Sprint. Codex ships a current-session sequential skill instead.
-            if filename == "pactkit.md":
-                content = content.replace(
-                    "- **Role**: Team Lead (Orchestrator)",
-                    "- **Role**: Current-session PDCA coordinator",
-                )
-                content = content.replace(
-                    "- **Goal**: Automated PDCA Sprint orchestration via Subagent Team.",
-                    "- **Goal**: Sequential PDCA for multiple Stories in the current Codex session.",
-                )
-                content = content.replace(
-                    "Sprint orchestrates multiple stories via subagent team; overkill for one story.",
-                    "Sprint processes multiple Stories sequentially in the current session; overkill for one story.",
-                )
             _enforce_deploy_integrity(content, profile, f"rule:{filename}")
-            atomic_write(rules_dir / filename, content + "\n")
+            destination = rules_dir / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            rendered = content + "\n"
+            relative = (Path("rules") / filename).as_posix()
+            expected_hash = previous_hashes.get(relative)
+            if destination.is_file():
+                actual_hash = hashlib.sha256(destination.read_bytes()).hexdigest()
+                rendered_hash = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+                if actual_hash != rendered_hash and (
+                    not expected_hash or actual_hash != expected_hash
+                ):
+                    candidate = destination.with_suffix(destination.suffix + ".pactkit-new")
+                    atomic_write(candidate, rendered)
+                    print(
+                        f"  ⚠️  preserved user-modified PactKit rule: {destination}; "
+                        f"wrote candidate {candidate.name}"
+                    )
+                    continue
+            atomic_write(destination, rendered)
 
-        cred_path = rules_dir / CREDENTIAL_SAFETY_FILE
-        if not cred_path.exists():
-            atomic_write(cred_path, "# Credential Safety\n\n"
-                         "NEVER print passwords, keys, or tokens to stdout.\n"
-                         "NEVER commit secrets to version control.\n")
 
     @staticmethod
-    def deploy_codex_agents_md(codex_root, profile, enabled_commands=None):
-        """Generate AGENTS.md with rules index table for Codex CLI (single-agent, 10KB budget)."""
+    def deploy_codex_agents_md(codex_root, profile, enabled_commands=None, enabled_rules=None):
+        """Generate the minimal always-loaded Codex Runtime index."""
         MAX_SIZE = 10 * 1024
         CLAUDE_PATH_PATTERNS = ["~/.claude/", ".claude/"]
 
-        lines = [f"# PactKit Global Constitution (v{__version__})", ""]
+        from pactkit.prompts.rules import normalize_rule_id
 
-        lines.append("## Rules Reference")
-        lines.append("")
-        lines.append("Rules are stored in `~/.codex/rules/` and loaded on-demand by each command.")
-        lines.append("See individual command prompts for which rules apply to each PDCA phase.")
-        lines.append("")
-        lines.append("| Key | File | Scope |")
-        lines.append("|-----|------|-------|")
-        lines.append("| core | `01-core-protocol.md` | All commands |")
-        lines.append("| hierarchy | `02-hierarchy-of-truth.md` | Plan, Act, Check, Done, Hotfix |")
-        lines.append("| atlas | `03-file-atlas.md` | Most commands |")
-        lines.append("| workflow | `05-workflow-conventions.md` | Done, Release, PR, Hotfix |")
-        lines.append("| shared | `07-shared-protocols.md` | Plan, Act, Check, Done, Hotfix, Init |")
-        lines.append("| architecture | `08-architecture-principles.md` | Plan, Act, Design |")
-        lines.append("| sectional | `09-sectional-write.md` | Plan, Act, Init, Design |")
-        lines.append("| credential | `09-credential-safety.md` | All commands (SEC-1) |")
-        lines.append("")
+        configured = sorted(DEFAULT_RULE_IDS) if enabled_rules is None else enabled_rules
+        enabled_rule_ids = {
+            normalized
+            for rule_id in configured
+            if (normalized := normalize_rule_id(rule_id)) is not None
+        }
 
-        lines.append("## Agent Roles")
-        lines.append("")
-        lines.append("> Codex CLI is single-agent. These roles are prompt-level conventions —")
-        lines.append("> adopt the appropriate role based on the active PDCA phase.")
-        lines.append("")
-
-        for name, cfg in sorted(prompts.AGENTS_EXPERT.items()):
-            lines.append(f"### {name}")
-            lines.append(f"- **Description**: {cfg['desc']}")
-            goal = _extract_goal_from_prompt(cfg.get("prompt", ""))
-            if goal:
-                lines.append(f"- **Goal**: {goal}")
-            lines.append("")
-
-        lines.append("## PDCA Routing Table")
-        lines.append("")
-        lines.append("| Phase | Command | Role |")
-        lines.append("|-------|---------|------|")
-        routes = (
-            ("Plan", "project-plan", "system-architect"),
-            ("Plan", "project-design", "product-designer"),
-            ("Plan", "project-clarify", "system-architect"),
-            ("Act", "project-act", "senior-developer"),
-            ("Act", "project-hotfix", "senior-developer"),
-            ("Check", "project-check", "qa-engineer"),
-            ("Done", "project-done", "repo-maintainer"),
-            ("Done", "project-release", "repo-maintainer"),
-            ("Done", "project-pr", "repo-maintainer"),
-            ("Bootstrap", "project-init", "system-architect"),
-        )
-        enabled = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
-        for phase, command, role in routes:
-            if command in enabled:
-                lines.append(f"| {phase} | `${command}` | {role} |")
-        lines.append("")
-
-        if "project-init" in enabled:
-            lines.append("> **TIP**: Use `$project-init` to set up project governance.")
-        lines.append("")
+        lines = [f"# PactKit Runtime Contract (v{__version__})", ""]
+        if "runtime" in enabled_rule_ids:
+            lines.extend((
+                _render_prompt(RULE_DEFINITIONS["runtime"].content.strip(), profile),
+                "",
+            ))
+        lines.extend((
+            "PactKit skills are opt-in: an ordinary question or coding task does not activate PDCA.",
+            "When you explicitly invoke a PactKit skill, that skill loads only its phase contract and declared shared modules.",
+            "",
+        ))
 
         raw_content = _render_prompt("\n".join(lines), profile)
 
@@ -519,14 +651,37 @@ class CodexDeployer(DeployerBase):
         atomic_write(codex_root / "AGENTS.md", raw_content)
 
     @staticmethod
-    def deploy_codex_command_skills(skills_dir, profile, enabled_commands=None):
+    def deploy_codex_command_skills(
+        skills_dir, profile, enabled_commands=None, maintainer_overlay=False,
+        enabled_rules=None,
+    ):
         """Deploy PDCA commands as skills/{name}/SKILL.md (unified with Claude Code)."""
         deployed = 0
         from pactkit.config import VALID_COMMANDS
         from pactkit.prompts.commands import get_deployable_commands
 
         enabled = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
+        configured_rules = (
+            sorted(DEFAULT_RULE_IDS) if enabled_rules is None else enabled_rules
+        )
+        enabled_rule_ids = {
+            normalized
+            for rule_id in configured_rules
+            if (normalized := normalize_rule_id(rule_id)) is not None
+        }
+        codex_root = skills_dir.parent
+        previous_hashes = {}
+        deployment_manifest = codex_root / ".pactkit-deployed.json"
+        if deployment_manifest.is_file():
+            try:
+                payload = json.loads(deployment_manifest.read_text(encoding="utf-8"))
+                files = payload.get("files", {})
+                if isinstance(files, dict):
+                    previous_hashes = files
+            except (OSError, ValueError, TypeError):
+                pass
         rendered: dict[str, str] = {}
+        references_by_command: dict[str, dict[Path, str]] = {}
 
         for filename, raw_content in get_deployable_commands().items():
             if filename in CODEX_EXCLUDED_COMMANDS:
@@ -559,6 +714,18 @@ class CodexDeployer(DeployerBase):
             content = content.replace("~/.config/opencode/", "~/.codex/")
             content = content.replace(".claude/settings.json", ".codex/config.toml")
             content = content.replace(".claude/", ".codex/")
+            content = content.replace(
+                "~/.codex/skills/_rules/design/capability-design.md",
+                "references/rules/capability-design.md",
+            )
+            content = content.replace(
+                "~/.codex/skills/_rules/engineering/index.md",
+                "references/rules/engineering-index.md",
+            )
+            content = content.replace(
+                "~/.codex/skills/_rules/guides/",
+                "references/guides/",
+            )
 
             content = CodexDeployer.strip_model_references(content)
             content = content.replace("Agent(model=", "# Agent(model=")
@@ -566,20 +733,69 @@ class CodexDeployer(DeployerBase):
             # Replace CLI commands with direct script invocations
             content = _replace_cli_with_scripts(content)
 
-            # Build SKILL.md with frontmatter + @references + content
-            rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["pactkit", "credential"])
-            refs = []
+            # Compose selected phase/shared rules into SKILL.md at build time.
+            # Codex does not document Claude-style Markdown @imports, so the
+            # activated skill must carry its complete operational contract.
+            rule_keys = COMMAND_RULES_MAP.get(cmd_name, ["runtime"])
+            if maintainer_overlay:
+                rule_keys = [*rule_keys, "pactkit-maintainer"]
+            inline_rules = []
             for key in rule_keys:
-                if key == "credential":
-                    refs.append(f"@~/.codex/rules/{CREDENTIAL_SAFETY_FILE}")
-                elif key in RULES_FILES:
-                    refs.append(f"@~/.codex/rules/{RULES_FILES[key]}")
+                if key == "runtime":
+                    continue
+                elif key in RULE_DEFINITIONS:
+                    inline_rules.append(
+                        _render_prompt(RULE_DEFINITIONS[key].content.strip(), profile)
+                    )
+
+            conditional = {
+                rule_id: RULE_DEFINITIONS[rule_id]
+                for rule_id in COMMAND_CONDITIONAL_RULES_MAP.get(cmd_name, ())
+                if rule_id in enabled_rule_ids
+            }
+            if conditional:
+                routes = [
+                    "## Conditional references",
+                    "",
+                    "Read only a reference whose trigger matches the current task:",
+                    "",
+                    *(
+                        f"- `{definition.trigger}` → "
+                        f"`references/rules/{rule_id}.md`"
+                        for rule_id, definition in conditional.items()
+                    ),
+                ]
+                content = "\n".join(routes) + "\n\n" + content
 
             frontmatter = f'---\nname: {cmd_name}\ndescription: "{description}"\n---\n\n'
-            skill_content = frontmatter + "\n".join(refs) + "\n\n" + content
+            contract = "\n\n---\n\n".join(inline_rules)
+            skill_content = (
+                frontmatter + "## Active PactKit Contract\n\n" + contract
+                + "\n\n" + content
+            )
             _enforce_deploy_integrity(skill_content, profile, f"command_skill:{cmd_name}")
 
             rendered[cmd_name] = skill_content
+            command_references = {}
+            for rule_id, definition in conditional.items():
+                reference_content = _render_prompt(
+                    definition.content.strip(), profile,
+                ).replace(
+                    "~/.codex/skills/_rules/guides/", "../guides/",
+                )
+                reference_content = CodexDeployer.strip_model_references(
+                    reference_content
+                )
+                reference_content = _replace_cli_with_scripts(reference_content)
+                command_references[Path("rules") / f"{rule_id}.md"] = (
+                    reference_content + "\n"
+                )
+            if cmd_name == "project-act":
+                command_references.update({
+                    Path("guides") / filename: guide_content
+                    for filename, guide_content in GUIDES_FILES.items()
+                })
+            references_by_command[cmd_name] = command_references
 
         # Rendering/validation succeeded. Capture the previous ownership but
         # do not delete anything until selected commands and their new manifest
@@ -595,6 +811,47 @@ class CodexDeployer(DeployerBase):
                 skill_path = skills_dir / cmd_name / "SKILL.md"
                 snapshots[skill_path] = skill_path.read_bytes() if skill_path.is_file() else None
                 atomic_write(skill_path, skill_content)
+                for relative, reference_content in references_by_command[cmd_name].items():
+                    reference = skill_path.parent / "references" / relative
+                    snapshots[reference] = (
+                        reference.read_bytes() if reference.is_file() else None
+                    )
+                    _enforce_deploy_integrity(
+                        reference_content, profile,
+                        f"command_reference:{cmd_name}:{relative.as_posix()}",
+                    )
+                    rendered_bytes = reference_content.encode("utf-8")
+                    relative_to_root = reference.relative_to(codex_root).as_posix()
+                    expected_hash = previous_hashes.get(relative_to_root)
+                    if reference.is_file():
+                        actual_hash = hashlib.sha256(reference.read_bytes()).hexdigest()
+                        rendered_hash = hashlib.sha256(rendered_bytes).hexdigest()
+                        if actual_hash != rendered_hash and (
+                            not expected_hash or actual_hash != expected_hash
+                        ):
+                            candidate = reference.with_suffix(
+                                reference.suffix + ".pactkit-new"
+                            )
+                            snapshots[candidate] = (
+                                candidate.read_bytes() if candidate.is_file() else None
+                            )
+                            atomic_write(candidate, reference_content)
+                            continue
+                    atomic_write(reference, reference_content)
+                if cmd_name == "project-sprint":
+                    from pactkit.prompts.rules import PHASE_RULE_CONTENTS
+
+                    references = skill_path.parent / "references" / "phases"
+                    for phase in ("plan", "act", "check", "done"):
+                        reference = references / f"{phase}.md"
+                        snapshots[reference] = (
+                            reference.read_bytes() if reference.is_file() else None
+                        )
+                        capsule = PHASE_RULE_CONTENTS[f"phase-{phase}"]
+                        _enforce_deploy_integrity(
+                            capsule, profile, f"sprint_phase:{phase}",
+                        )
+                        atomic_write(reference, capsule)
                 record_deployed_command(manifest, cmd_name, skill_path)
                 deployed += 1
             write_command_manifest(skills_dir, manifest)
@@ -787,7 +1044,8 @@ def update(target=None, force=False, if_needed=False, dry_run=False):
     if dry_run:
         print(f"Would update ({deployed_version or 'none'} → {__version__}):")
         print(f"  {codex_root}/AGENTS.md")
-        print(f"  {codex_root}/rules/*.md")
+        print(f"  {codex_root}/rules/pactkit-runtime.md")
+        print(f"  {codex_root}/skills/project-*/references/ (on demand)")
         print(f"  {codex_root}/skills/*/")
         print("Preserved (user-owned):")
         print(f"  {codex_root}/config.toml")
@@ -864,20 +1122,19 @@ def _codex_single_session_sprint():
     """
     return """# Command: Sprint (Current-Session PDCA)
 - **Usage**: `$project-sprint "$ARGUMENTS"`
-- **Execution**: Complete every stage in this active Codex session. Do not
-  create a team, dispatch a runner, open a background workflow, or require a
-  separate session.
+- **Execution**: Complete every stage sequentially in this active Codex
+  session and carry verified phase evidence forward.
 
 ## Single-story mode
 
-When `$ARGUMENTS` names a new requirement, run these skills in order in the
-current session and carry their real outputs forward:
+When `$ARGUMENTS` names a new requirement, activate one phase at a time.
+Before each phase, use the Read tool to read only its relative reference under
+this skill directory; these are paths to read, not Markdown imports:
 
-1. `$project-plan "$ARGUMENTS"` — create or update the Spec and Story.
-2. `$project-act "<STORY-ID>"` — implement with tests.
-3. `$project-check "<STORY-ID>"` — verify the implementation and Spec.
-4. `$project-done "<STORY-ID>"` — perform the close-out only after Check
-   passes.
+1. Read `references/phases/plan.md`; create or update the Spec and Story.
+2. Read `references/phases/act.md`; implement with behavioral tests.
+3. Read `references/phases/check.md`; verify implementation and Spec.
+4. Read `references/phases/done.md`; close out only after Check passes.
 
 Stop at the failing stage and report the evidence needed to resume in this
 same session. Checkpoints are optional handover context; they never block a

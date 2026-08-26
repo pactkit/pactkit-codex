@@ -213,25 +213,25 @@ def test_codex_sprint_is_a_real_current_session_fallback(tmp_path):
     sprint = (tmp_path / "project-sprint" / "SKILL.md").read_text()
 
     assert "Sequential PDCA in the current Codex session" in sprint
-    assert "$project-plan" in sprint
-    assert "$project-act" in sprint
-    assert "$project-check" in sprint
-    assert "$project-done" in sprint
+    for phase in ("plan", "act", "check", "done"):
+        assert f"references/phases/{phase}.md" in sprint
     for unavailable_api in ("TeamCreate", "TaskCreate", "SendMessage", "TeamDelete"):
         assert unavailable_api not in sprint
     assert "commands/project-" not in sprint
 
 
 def test_codex_command_selection_removes_only_owned_disabled_command(tmp_path):
-    profile = get_profile("codex")
-    CodexDeployer.deploy_codex_command_skills(tmp_path, profile)
-
-    CodexDeployer.deploy_codex_command_skills(
-        tmp_path, profile, enabled_commands=["project-plan"],
+    deployer = CodexDeployer()
+    deployer.deploy(
+        target=tmp_path, config={"commands": ["project-act", "project-plan"]},
     )
+    skills = tmp_path / "skills"
+    assert (skills / "project-act" / "references" / "guides" / "caching.md").is_file()
 
-    assert (tmp_path / "project-plan" / "SKILL.md").is_file()
-    assert not (tmp_path / "project-act").exists()
+    deployer.deploy(target=tmp_path, config={"commands": ["project-plan"]})
+
+    assert (skills / "project-plan" / "SKILL.md").is_file()
+    assert not (skills / "project-act").exists()
 
 
 def test_failed_command_selection_keeps_old_command_and_manifest(tmp_path, monkeypatch):
@@ -373,21 +373,21 @@ def test_failure_after_live_writes_restores_entire_previous_deployment(
     assert after == before
 
 
-def test_selective_deploy_does_not_advertise_uninstalled_codex_commands(tmp_path):
+def test_selective_deploy_keeps_codex_runtime_free_of_command_catalogs(tmp_path):
     CodexDeployer().deploy(
         target=tmp_path, config={"commands": ["project-plan"]},
     )
 
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    rules = (tmp_path / "rules" / "pactkit.md").read_text(encoding="utf-8")
-    assert "$project-plan" in agents
+    rules = (tmp_path / "rules" / "pactkit-runtime.md").read_text(encoding="utf-8")
+    assert "project-plan" not in agents
     assert "/project-" not in agents
     for disabled in ("project-act", "project-check", "project-done", "project-sprint"):
         assert f"${disabled}" not in agents
         assert f"${disabled}" not in rules
 
-    for rule in (tmp_path / "rules").glob("*.md"):
+    for rule in (tmp_path / "rules").rglob("*.md"):
         content = rule.read_text(encoding="utf-8")
         for disabled in ("project-act", "project-check", "project-done", "project-sprint"):
             assert f"${disabled}" not in content, rule.name
-            assert f"/{disabled}" not in content, rule.name
+        assert f"/{disabled}" not in content, rule.name

@@ -45,6 +45,7 @@ class TestAC1ArtifactCreation:
         assert len(skill_dirs) == 25, (
             f"Expected 25 skill dirs, got {len(skill_dirs)}: {[d.name for d in skill_dirs]}"
         )
+        assert not (codex_deploy / "skills" / "_rules").exists()
 
     def test_10_command_skill_dirs(self, codex_deploy):
         """R1: 11 PDCA command skill directories (sprint excluded)."""
@@ -163,11 +164,13 @@ class TestCommandSkillIntegrity:
 
     def test_sprint_has_sequential_fallback(self, codex_deploy):
         content = (codex_deploy / "skills" / "project-sprint" / "SKILL.md").read_text()
-        assert "Complete every stage in this active Codex session" in content
-        assert "$project-plan" in content
-        assert "$project-act" in content
-        assert "$project-check" in content
-        assert "$project-done" in content
+        assert "Complete every stage sequentially in this active Codex" in content
+        for phase in ("plan", "act", "check", "done"):
+            assert f"references/phases/{phase}.md" in content
+            assert (
+                codex_deploy / "skills" / "project-sprint" /
+                "references" / "phases" / f"{phase}.md"
+            ).is_file()
         assert "TeamCreate" not in content
 
     def test_command_skills_have_skill_md(self, codex_deploy):
@@ -181,8 +184,8 @@ class TestCommandSkillIntegrity:
             skill_md = codex_deploy / "skills" / cmd / "SKILL.md"
             assert skill_md.is_file(), f"{cmd}/SKILL.md missing"
 
-    def test_command_skills_have_rules_references(self, codex_deploy):
-        """Each command SKILL.md has @~/.codex/rules/ references at the top."""
+    def test_command_skills_have_inline_contracts(self, codex_deploy):
+        """Each command SKILL.md contains rules without Claude-style imports."""
         expected_commands = {
             "project-init", "project-plan", "project-act",
             "project-check", "project-done", "project-release",
@@ -191,7 +194,18 @@ class TestCommandSkillIntegrity:
         for cmd in expected_commands:
             skill_md = codex_deploy / "skills" / cmd / "SKILL.md"
             content = skill_md.read_text()
-            assert "@~/.codex/rules/" in content, f"{cmd}/SKILL.md missing @~/.codex/rules/ references"
+            assert "## Active PactKit Contract" in content
+            assert "# PDCA Lifecycle" in content
+            assert "# Credential Safety" not in content
+            assert "@~/.codex/rules/" not in content
+
+        act = (codex_deploy / "skills" / "project-act" / "SKILL.md").read_text()
+        assert "references/guides/" in act
+        assert "~/.codex/skills/_rules" not in act
+        assert (
+            codex_deploy / "skills" / "project-act" / "references"
+            / "guides" / "caching.md"
+        ).is_file()
 
     def test_agents_md_under_20kb(self, codex_deploy):
         """AGENTS.md must be under 20KB budget."""

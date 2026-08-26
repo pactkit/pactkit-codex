@@ -41,29 +41,19 @@ class TestGenerateAgentsMd:
         content = agents_md.read_text()
         assert "~/.claude/" not in content
 
-    def test_ac4_all_9_agent_roles_present(self, codex_root):
-        """AC4: All 9 agent roles appear in the file."""
+    def test_ac4_no_pdca_role_catalog_is_always_loaded(self, codex_root):
+        """Phase roles belong to opt-in command skills, not the global runtime."""
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
-        expected_roles = [
-            "system-architect",
-            "senior-developer",
-            "qa-engineer",
-            "repo-maintainer",
-            "system-medic",
-            "security-auditor",
-            "visual-architect",
-            "code-explorer",
-            "product-designer",
-        ]
-        for role in expected_roles:
-            assert role in content, f"Role '{role}' not found in AGENTS.md"
+        assert "Agent Roles" not in content
+        assert "system-architect" not in content
 
-    def test_ac5_pdca_routing_present(self, codex_root):
-        """AC5: PDCA routing table is present."""
+    def test_ac5_pdca_routing_is_not_always_loaded(self, codex_root):
+        """Global runtime does not direct ordinary work into PDCA."""
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
-        assert "PDCA" in content or "routing" in content.lower()
+        assert "PDCA Routing Table" not in content
+        assert "$project-" not in content
 
     def test_ac6_no_hardcoded_model_ids(self, codex_root):
         """AC6: No hardcoded model IDs (Claude or OpenAI)."""
@@ -77,14 +67,15 @@ class TestGenerateAgentsMd:
         assert "gpt-4o" not in content
         assert "o4-mini" not in content
 
-    def test_r1_rules_reference_table(self, codex_root):
-        """R1: Rules index table present (STORY-011: rules extracted to files)."""
+    def test_r1_runtime_is_inlined_without_rule_file_dependency(self, codex_root):
+        """The always-loaded instruction file directly carries Runtime."""
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
-        # STORY-011 replaced inline rules with a reference table
-        assert "Rules Reference" in content
-        assert "01-core-protocol.md" in content
-        assert "09-credential-safety.md" in content
+        assert "Rules Reference" not in content
+        assert "## Activation" in content
+        assert "current host and current session" in content
+        assert "pactkit-runtime.md" not in content
+        assert "09-credential-safety.md" not in content
 
     def test_r5_excluded_rules(self, codex_root):
         """R5: mcp-integration and architecture-principles rules are excluded."""
@@ -95,16 +86,14 @@ class TestGenerateAgentsMd:
         # Architecture principles references Claude Code deploy paths — excluded
         assert "Architecture Principles" not in content
 
-    def test_r3_pdca_routing_table_structure(self, codex_root):
-        """R3: Routing table maps PDCA phases to commands and roles."""
+    def test_r3_no_command_catalog_in_runtime(self, codex_root):
+        """Command discovery stays opt-in; runtime should not enumerate phases."""
         agents_md = self._generate(codex_root)
         content = agents_md.read_text()
-        # Should contain references to all PDCA phase commands
-        assert "$project-plan" in content
-        assert "$project-act" in content
-        assert "$project-check" in content
-        assert "$project-done" in content
-        assert "/project-" not in content
+        assert "project-plan" not in content
+        assert "project-act" not in content
+        assert "project-check" not in content
+        assert "project-done" not in content
 
     def test_r6_render_prompt_used(self, codex_root):
         """R6: Codex skills paths used (not Claude paths)."""
