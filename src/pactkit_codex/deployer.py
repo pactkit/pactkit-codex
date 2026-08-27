@@ -30,7 +30,9 @@ from pactkit.config import (
 from pactkit.deployment_transaction import rollback_paths
 from pactkit.generators.command_ownership import (
     cleanup_disabled_command_skills,
+    read_command_references,
     record_deployed_command,
+    record_deployed_reference,
     write_command_manifest,
 )
 from pactkit.generators.deploy_base import DeployerBase, register_deployer
@@ -285,16 +287,28 @@ class CodexDeployer(DeployerBase):
     def _cleanup_stale_command_references(
         codex_root: Path, enabled_commands, enabled_rules,
     ) -> None:
-        """Retire stale command-local references with manifest-backed ownership."""
+        """Retire stale command-local references with manifest-backed ownership.
+
+        Ownership proofs come from two ledgers: the deployed manifest's
+        ``files`` table (rules-era records) and the command manifest v2
+        ``references`` table, which records the digest of every reference the
+        deployer itself wrote (STORY-slim-20260827fc9de5542ad7 R2).  Without a
+        matching digest the file is conservatively preserved.
+        """
         manifest_path = codex_root / ".pactkit-deployed.json"
-        if not manifest_path.is_file():
-            return
-        try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            previous_hashes = payload.get("files", {})
-        except (OSError, ValueError, TypeError):
-            return
-        if not isinstance(previous_hashes, dict):
+        previous_hashes: dict = {}
+        if manifest_path.is_file():
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                files = payload.get("files", {})
+            except (OSError, ValueError, TypeError):
+                files = {}
+            if isinstance(files, dict):
+                previous_hashes = files
+        # The command manifest is the authoritative record for references;
+        # on conflict its digest wins.
+        proofs = {**previous_hashes, **read_command_references(codex_root / "skills")}
+        if not proofs:
             return
 
         commands = set(VALID_COMMANDS if enabled_commands is None else enabled_commands)
@@ -316,12 +330,19 @@ class CodexDeployer(DeployerBase):
                 f"skills/project-act/references/guides/{filename}"
                 for filename in GUIDES_FILES
             )
+        if "project-sprint" in commands:
+            # Phase capsules are actively deployed references — they must be
+            # desired, or the newly available proofs would retire them.
+            desired.update(
+                f"skills/project-sprint/references/phases/{phase}.md"
+                for phase in ("plan", "act", "check", "done")
+            )
 
         prefixes = (
             "skills/project-",
             "skills/_rules/",
         )
-        for relative, expected_hash in previous_hashes.items():
+        for relative, expected_hash in proofs.items():
             if not isinstance(relative, str) or relative in desired:
                 continue
             is_reference = (
@@ -805,6 +826,7 @@ class CodexDeployer(DeployerBase):
             skills_dir, set(VALID_COMMANDS), VALID_COMMANDS,
         )
         manifest = {name: digest for name, digest in previous.items() if name in enabled}
+        manifest_references: dict[str, str] = {}
         snapshots: dict[Path, bytes | None] = {}
         try:
             for cmd_name, skill_content in rendered.items():
@@ -836,8 +858,13 @@ class CodexDeployer(DeployerBase):
                                 candidate.read_bytes() if candidate.is_file() else None
                             )
                             atomic_write(candidate, reference_content)
+                            # The drifted original stays user-owned: no digest
+                            # is recorded, so a later cleanup preserves it.
                             continue
                     atomic_write(reference, reference_content)
+                    record_deployed_reference(
+                        manifest_references, relative_to_root, reference,
+                    )
                 if cmd_name == "project-sprint":
                     from pactkit.prompts.rules import PHASE_RULE_CONTENTS
 
@@ -852,9 +879,14 @@ class CodexDeployer(DeployerBase):
                             capsule, profile, f"sprint_phase:{phase}",
                         )
                         atomic_write(reference, capsule)
+                        record_deployed_reference(
+                            manifest_references,
+                            reference.relative_to(codex_root).as_posix(),
+                            reference,
+                        )
                 record_deployed_command(manifest, cmd_name, skill_path)
                 deployed += 1
-            write_command_manifest(skills_dir, manifest)
+            write_command_manifest(skills_dir, manifest, references=manifest_references)
         except Exception:
             for skill_path, previous_content in reversed(tuple(snapshots.items())):
                 if previous_content is None:
