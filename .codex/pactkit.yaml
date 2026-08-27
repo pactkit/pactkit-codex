@@ -80,6 +80,23 @@ rules:
   - 06-solution-design
   - 07-engineering-concerns
   - pactkit
+  - capability-design
+  - engineering-index
+  - external-tools
+  - git-workflow
+  - phase-act
+  - phase-check
+  - phase-done
+  - phase-hotfix
+  - phase-plan
+  - phase-pr
+  - phase-release
+  - runtime
+  - sectional-heuristics
+  - shared-execution
+  - spec-preflight
+  - pdca-lifecycle
+  - sprint-orchestrator
 
 # CI/CD — set provider to github or gitlab to generate pipeline config
 ci:
