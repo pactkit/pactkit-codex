@@ -139,3 +139,8 @@ command_models:
   project-init: sonnet
   project-pr: sonnet
   project-release: sonnet
+
+# Adapter release flow direct-pushes main (single-maintainer, release-managed
+# repo); mirrors pactkit-src's own exemption rationale (STORY-slim-202608289e83eeb30df4).
+enforcement:
+  allow_direct_push: true
