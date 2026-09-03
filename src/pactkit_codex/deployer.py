@@ -701,6 +701,14 @@ class CodexDeployer(DeployerBase):
                     previous_hashes = files
             except (OSError, ValueError, TypeError):
                 pass
+        # STORY-slim-20260903a24e1ece0d7f: merged ownership view — the deploy
+        # check previously read only .pactkit-deployed.json (which never carries
+        # reference paths), so every content change produced a .pactkit-new
+        # candidate. Same merge as _cleanup_stale_command_references.
+        ownership_proofs = {
+            **previous_hashes,
+            **read_command_references(codex_root / "skills"),
+        }
         rendered: dict[str, str] = {}
         references_by_command: dict[str, dict[Path, str]] = {}
 
@@ -844,7 +852,13 @@ class CodexDeployer(DeployerBase):
                     )
                     rendered_bytes = reference_content.encode("utf-8")
                     relative_to_root = reference.relative_to(codex_root).as_posix()
-                    expected_hash = previous_hashes.get(relative_to_root)
+                    # STORY-slim-20260903a24e1ece0d7f: merge the command-manifest
+                    # references table into the ownership view — the deploy path
+                    # previously read only .pactkit-deployed.json, which never
+                    # carried reference paths, so every content change produced a
+                    # .pactkit-new candidate (three recurrences on 2026-09-03).
+                    # Same merged view as _cleanup_stale_command_references.
+                    expected_hash = ownership_proofs.get(relative_to_root)
                     if reference.is_file():
                         actual_hash = hashlib.sha256(reference.read_bytes()).hexdigest()
                         rendered_hash = hashlib.sha256(rendered_bytes).hexdigest()
