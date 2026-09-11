@@ -97,6 +97,10 @@ rules:
   - spec-preflight
   - pdca-lifecycle
   - sprint-orchestrator
+  - phase-clarify
+  - phase-debug
+  - phase-design
+  - phase-init
 
 # CI/CD — set provider to github or gitlab to generate pipeline config
 ci:
@@ -156,7 +160,7 @@ e2e:
   test_dir: tests/e2e
   type: none
 
-# Visualize — configure directory scan exclusions and graph provider
+# Visualize — graph_provider: auto | codegraph | builtin_graph; auto detects codegraph
 visualize:
   scan_excludes:
     - venv

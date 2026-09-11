@@ -34,7 +34,9 @@ class TestAC4CodexTestsStillPass:
         from pactkit_codex.deployer import CodexDeployer
         CodexDeployer().deploy(target=str(tmp_path))
         assert (tmp_path / "AGENTS.md").is_file()
-        assert (tmp_path / "config.toml").is_file()
+        # Retired with STORY-slim-20260911b2bbd79889e0 A2/R3: deployment
+        # never creates config.toml — see test_a2_no_config_injection.py.
+        assert not (tmp_path / "config.toml").exists()
         # 13 embedded skills + 12 native PDCA commands; runner methods are not deployed.
         assert len([d for d in (tmp_path / "skills").iterdir() if d.is_dir()]) == 25
         # No legacy prompts/ directory (commands now deployed as skills)

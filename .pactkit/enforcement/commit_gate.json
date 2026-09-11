@@ -1,0 +1,6 @@
+{
+  "gate": "commit_gate",
+  "status": "unavailable",
+  "reason": "pytest not importable via /Users/slim/.local/pipx/venvs/pactkit/bin/python — create the project venv",
+  "ts": "2026-09-11T07:44:10+00:00"
+}

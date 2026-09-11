@@ -7,7 +7,6 @@ verification in a live Codex CLI session.
 
 import subprocess
 import sys
-import tomllib
 
 import pytest
 
@@ -27,8 +26,8 @@ class TestAC1ArtifactCreation:
     def test_agents_md_exists(self, codex_deploy):
         assert (codex_deploy / "AGENTS.md").is_file()
 
-    def test_config_toml_exists(self, codex_deploy):
-        assert (codex_deploy / "config.toml").is_file()
+    # Retired with STORY-slim-20260911b2bbd79889e0 A2: deployment never
+    # creates config.toml (test_a2_no_config_injection.py pins it).
 
     def test_board_script_exists(self, codex_deploy):
         assert (codex_deploy / "skills/pactkit-board/scripts/board.py").is_file()
@@ -102,20 +101,8 @@ class TestAC2NoLeakedRefs:
 class TestR5ConfigToml:
     """R5: config.toml is valid TOML and has expected structure."""
 
-    def test_valid_toml(self, codex_deploy):
-        """config.toml parses without error."""
-        with open(codex_deploy / "config.toml", "rb") as f:
-            data = tomllib.load(f)
-        assert isinstance(data, dict)
 
-    def test_has_mcp_section(self, codex_deploy):
-        """config.toml includes MCP server entries."""
-        with open(codex_deploy / "config.toml", "rb") as f:
-            data = tomllib.load(f)
-        assert "mcp" in data or "mcp_servers" in data or any(
-            "context7" in str(v) for v in data.values()
-        ), "No MCP configuration found in config.toml"
-
+    # The MCP section was the retired injection payload.
 
 class TestAC5SkillExecution:
     """AC5/R4: board.py executes under subprocess (simulates sandbox)."""

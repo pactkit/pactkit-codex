@@ -923,15 +923,17 @@ class CodexDeployer(DeployerBase):
 
     @staticmethod
     def generate_codex_config_toml(codex_root):
-        """Create config.toml for Codex CLI — but NEVER modify an existing one.
+        """Suggest Codex CLI settings — but NEVER write config.toml.
 
         config.toml carries the user's providers, MCP servers, project trust
-        and other sensitive state. PactKit's share is two scalar defaults and
-        one MCP entry — not worth any write risk. Policy (2026-08-13, user
-        directive after two wipe incidents):
-          - File exists  -> leave it BYTE-IDENTICAL, print the recommended
-            settings for the user to add by hand.
-          - File missing -> create it with the PactKit-managed sections.
+        and other sensitive state. Policy (2026-08-13, user directive after
+        two wipe incidents; extended 2026-09-11 by
+        STORY-slim-20260911b2bbd79889e0 A2/R3+R4):
+          - File exists  -> leave it BYTE-IDENTICAL.
+          - File missing -> ALSO leave it missing. Creating it seeded with
+            host-permission scalars and an MCP server was injection, not
+            convenience — the user starts their own config, and PactKit
+            prints what it would have suggested instead.
         """
         config_path = codex_root / "config.toml"
 
@@ -939,16 +941,12 @@ class CodexDeployer(DeployerBase):
             print("  ℹ️ config.toml exists — left untouched (PactKit never modifies it)")
             return
 
-        lines = [
-            "# [pactkit:managed]",
-            'sandbox_mode = "workspace-write"',
-            'approval_policy = "on-request"',
-            "",
-            "# [pactkit:managed]",
-            "[mcp_servers.context7]",
-            'url = "https://mcp.context7.com/mcp"',
-        ]
-        atomic_write(config_path, chr(10).join(lines) + chr(10))
+        print(
+            "  ℹ️ no config.toml — none created (PactKit never writes it).\n"
+            "     If you want the settings PactKit was designed around, add by hand:\n"
+            '       sandbox_mode = "workspace-write"\n'
+            '       approval_policy = "on-request"'
+        )
 
     @staticmethod
     def generate_codex_project_files(project_root):
