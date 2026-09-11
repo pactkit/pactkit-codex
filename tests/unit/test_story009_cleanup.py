@@ -47,7 +47,12 @@ class TestAC5DeployerSmaller:
     """AC5: deployer.py significantly smaller (at least 40% reduction)."""
 
     def test_deployer_under_1000_lines(self):
+        # Resolve via the imported module, never a CWD-relative path: the
+        # release-acceptance job runs this suite from a neutral cwd against
+        # the installed wheel (STORY-slim-20260911b2bbd79889e0 C2 review).
         from pathlib import Path
-        lines = Path("src/pactkit_codex/deployer.py").read_text().count("\n")
+
+        import pactkit_codex.deployer as d
+        lines = Path(d.__file__).read_text().count("\n")
         # Original: ~2187 lines. 40% reduction = < 1312 lines
         assert lines < 1312, f"deployer.py has {lines} lines (expected < 1312)"
