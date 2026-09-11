@@ -45,8 +45,54 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # 2026-09-11 zero-credential acceptance split: the wait step below
+      # reads this repo's workflow runs — without an explicit actions: read
+      # the job token is denied and the wait degrades into a timeout.
+      actions: read
     steps:
       - uses: actions/checkout@v4
+
+      # STORY-slim-20260911b2bbd79889e0 C2/R8: a tag may only publish after
+      # the Release Acceptance workflow has accepted the SAME commit — this
+      # adapter's wheel installed together with the RELEASED core from PyPI
+      # (real pin check), suite green with zero skips, journey verified.
+      # Fail-closed: no acceptance conclusion within the timeout, no
+      # publish. API/permission failures fail FAST with stderr shown — only
+      # a legitimately still-running acceptance keeps waiting.
+      - name: Wait for Release Acceptance (same commit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ github.sha }}"
+          deadline=$(( $(date +%s) + 2700 ))
+          while :; do
+            if ! gh run list --workflow=release-acceptance.yml --commit "$SHA" \
+                 --json status,conclusion > /tmp/acceptance-runs.json 2>/tmp/gh-err; then
+              echo "::error::gh run list failed — permissions or API error, "
+              echo "NOT an acceptance-still-running state:"
+              cat /tmp/gh-err
+              exit 1
+            fi
+            row=$(jq -r '.[0] // empty' /tmp/acceptance-runs.json)
+            if [ -n "$row" ]; then
+              status=$(printf '%s' "$row" | jq -r '.status')
+              conclusion=$(printf '%s' "$row" | jq -r '.conclusion')
+              echo "release-acceptance: status=$status conclusion=$conclusion"
+              if [ "$status" = "completed" ]; then
+                if [ "$conclusion" = "success" ]; then
+                  echo "Release Acceptance passed for $SHA"
+                  exit 0
+                fi
+                echo "::error::Release Acceptance concluded: $conclusion — refusing to publish"
+                exit 1
+              fi
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::timed out waiting for Release Acceptance on $SHA"
+              exit 1
+            fi
+            sleep 30
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5

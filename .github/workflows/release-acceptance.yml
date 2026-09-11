@@ -1,0 +1,144 @@
+name: Release Acceptance
+
+# STORY-slim-20260911b2bbd79889e0 C2/R8, zero-credential split (2026-09-11).
+# The combo acceptance for "this adapter × released core" runs HERE because
+# GITHUB_TOKEN cannot cross the private repo boundary (the core repo's
+# acceptance run 34607922520 failed exactly there) and the owner chose no
+# PAT/secrets: this workflow checks out ITSELF — its own token suffices —
+# and installs the RELEASED core wheel from PyPI, which the resolver pins
+# for real (R8: 校验版本兼容). publish.yml waits for this workflow before
+# publishing a tag.
+#
+# Timing: the release order is core-first, so at an adapter tag the PyPI
+# core already carries the matching version. On plain pushes to main the
+# versions match outside the release-prep window (adapter bumped, core not
+# yet published — a red run there honestly reports "this combo is not
+# publishable yet").
+#
+# Coverage: classic + codex (this host). The opencode repo's acceptance
+# covers classic + opencode; the union covers all three hosts.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  combo:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build this adapter's wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir dist/ .
+
+      - name: Install adapter wheel + released core into a clean environment
+        run: |
+          python -m venv /tmp/accept
+          # The adapter wheel comes from the local dist/; its `pactkit` pin
+          # is resolved against the index — the RELEASED core, by the real
+          # resolver. This is the R8 version-compatibility check. tomli rides
+          # along on Python 3.10 via the adapter's own dependency.
+          /tmp/accept/bin/pip install dist/pactkit_codex-*.whl
+          ! /tmp/accept/bin/pip list | grep -q '\-e '
+
+      - name: Versions (R8)
+        run: |
+          /tmp/accept/bin/python -c "
+          import importlib.metadata as m
+          print('core:', m.version('pactkit'))
+          print('codex adapter:', m.version('pactkit-codex'))"
+          /tmp/accept/bin/pactkit version
+
+      - name: Adapter suite runs against the installed combo (skip = fail)
+        run: |
+          /tmp/accept/bin/pip install pytest
+          # The pyproject sets `pythonpath = ["src", "../pactkit/src"]` for
+          # local dev — running pytest inside the checkout would import the
+          # adapter SOURCE. Neutral cwd + `-c` empty ini keep imports on the
+          # installed wheels.
+          printf '[pytest]\n' > /tmp/acceptance-pytest.ini
+          cd /tmp
+          /tmp/accept/bin/pytest \
+            "$GITHUB_WORKSPACE/tests/unit" \
+            -c /tmp/acceptance-pytest.ini -p no:cacheprovider \
+            --junitxml=/tmp/cx-results.xml -q \
+            || { echo "::error::codex adapter suite failed"; exit 1; }
+          /tmp/accept/bin/python - <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("/tmp/cx-results.xml").getroot()
+          skipped = sum(int(s.get("skipped", 0)) for s in root.iter("testsuite"))
+          errors = sum(int(s.get("errors", 0)) for s in root.iter("testsuite"))
+          if skipped or errors:
+              print(f"::error::adapter suite: {skipped} skipped, {errors} errors — "
+                    "skip is failure under release acceptance")
+              sys.exit(1)
+          print("codex suite: 0 skipped, 0 errors")
+          EOF
+
+      - name: Classic + codex journey from the wheels (AC12, CLI layer)
+        run: |
+          PACTKIT="/tmp/accept/bin/pactkit"
+          command -v "$PACTKIT" >/dev/null 2>&1 \
+            || { echo "::error::acceptance venv has no pactkit entry point"; exit 1; }
+          export HOME="/tmp/journey-home" XDG_CONFIG_HOME="/tmp/journey-home/.config"
+          rm -rf "$HOME" /tmp/journey-proj
+          mkdir -p "$HOME" /tmp/journey-proj
+          cd /tmp/journey-proj
+          git init -q .
+          git config user.email journey@example.invalid
+          git config user.name journey
+
+          fail() { echo "::error::journey: $1"; exit 1; }
+          journey() {  # host deploy-root-relative-to-HOME
+            local host="$1" rel="$2"
+            local root="$HOME/$rel"
+            echo "=== $host ($root) ==="
+            "$PACTKIT" version
+            "$PACTKIT" init --format "$host" > "init-$host.log" 2>&1 \
+              || { cat "init-$host.log"; fail "$host init failed"; }
+            [ -f "$root/.pactkit-deployed.json" ] || fail "$host: no deployment manifest"
+
+            case "$host" in
+              codex)
+                # Fresh isolated HOME: init must never create config.toml
+                # (it was historically created to inject MCP/permission scalars).
+                [ ! -f "$root/config.toml" ] || fail "$host: config.toml was created by init" ;;
+            esac
+            entry="$root/skills/project-plan/SKILL.md"
+            [ -f "$entry" ] || fail "$host: method entry point missing ($entry)"
+
+            mkdir -p "$root/rules"
+            printf '# My team conventions\n- ours, not PactKit\x27s\n' > "$root/rules/my-team.md"
+            "$PACTKIT" update --format "$host" > "update-$host.log" 2>&1 \
+              || { cat "update-$host.log"; fail "$host update failed"; }
+            [ -f "$root/rules/my-team.md" ] || fail "$host: user rule file lost by update"
+
+            "$PACTKIT" uninstall --target "$root" > "uninstall-$host.log" 2>&1 \
+              || { cat "uninstall-$host.log"; fail "$host uninstall failed"; }
+            [ -f "$root/rules/my-team.md" ] || fail "$host: user file deleted by uninstall"
+            [ ! -f "$root/skills/pactkit-board/scripts/board.py" ] \
+              || fail "$host: manifest-owned file survived uninstall"
+            echo "$host journey OK (CLI layer)"
+          }
+
+          journey classic ".claude"
+          journey codex    ".codex"
+          # Real-host runtime sessions: UNVERIFIED per R8 (CLI/artifact
+          # layer only on the runner).
