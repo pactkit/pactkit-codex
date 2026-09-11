@@ -11,3 +11,7 @@ dist/
 htmlcov/
 .env
 *.log
+
+# Build artifacts (wheel builds mutate build/lib) and runtime state
+build/
+.pactkit/

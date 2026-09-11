@@ -104,7 +104,11 @@ class TestAC2CommandSkillsIncludeRules:
         assert clarify_skill.exists()
         content = clarify_skill.read_text()
         assert "# PDCA Lifecycle" in content
-        assert "# Plan Contract" in content
+        # project-clarify carries its own phase contract (phase-clarify), not
+        # Plan's — stale expectation fixed against the registry ground truth
+        # (STORY-slim-20260911b2bbd79889e0 C2: the acceptance job exposed it).
+        assert "# Clarify Contract" in content
+        assert "# Plan Contract" not in content
         assert "# Credential Safety" not in content
         assert "@~/.codex/rules/" not in content
         assert "# Capability Design" not in content

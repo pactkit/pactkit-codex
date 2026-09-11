@@ -187,7 +187,10 @@ class TestCommandSkillIntegrity:
             assert "@~/.codex/rules/" not in content
 
         act = (codex_deploy / "skills" / "project-act" / "SKILL.md").read_text()
-        assert "references/guides/" in act
+        # ADR-0003: guides load via the CLI choke points, not inline path refs
+        # (stale expectation fixed, STORY-slim-20260911b2bbd79889e0 C2).
+        assert "pactkit guide show" in act
+        assert "references/guides/" not in act
         assert "~/.codex/skills/_rules" not in act
         assert (
             codex_deploy / "skills" / "project-act" / "references"

@@ -183,3 +183,6 @@ hooks:
   post_test_coverage: false
   pre_commit_lint: false
   pre_push_check: false
+
+enforcement:
+  allow_direct_push: true

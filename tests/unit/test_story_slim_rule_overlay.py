@@ -59,7 +59,13 @@ def test_codex_deploy_installs_engineering_guides(tmp_path):
     assert guide.is_file()
     assert "## Trigger" in guide.read_text(encoding="utf-8")
     act = (tmp_path / "skills" / "project-act" / "SKILL.md").read_text(encoding="utf-8")
-    assert "references/guides/" in act
+    # Guide loading goes through the CLI choke points (ADR-0003: pactkit risk
+    # selects, pactkit guide show loads) — the SKILL body references those,
+    # not inline references/guides/ paths (stale expectation fixed against
+    # ground truth, STORY-slim-20260911b2bbd79889e0 C2).
+    assert "pactkit guide show" in act
+    assert "pactkit risk" in act
+    assert "references/guides/" not in act
     assert "~/.codex/skills/_rules" not in act
     assert "@~/.codex/rules/" not in act
 
