@@ -92,6 +92,36 @@ jobs:
           print("codex suite: 0 skipped, 0 errors")
           EOF
 
+      - name: Host prompt-body snapshot against the installed combo (AC10/R7)
+        run: |
+          # 2026-09-12 review (83/100, gap 2): pin THIS host's deployed
+          # prompt bodies — the core workflow covers classic only. The
+          # golden records its core version: a mismatch fails with
+          # PENDING-COMPATIBLE-CORE (publish the matching core release),
+          # digest drift fails naming the file, and a tamper probe proves
+          # an in-place body edit is caught by the same comparison. A skip
+          # fails the step.
+          printf '[pytest]\n' > /tmp/acceptance-pytest.ini
+          cd /tmp
+          /tmp/accept/bin/pytest \
+            "$GITHUB_WORKSPACE/tests/test_host_body_snapshot.py" \
+            -c /tmp/acceptance-pytest.ini -p no:cacheprovider \
+            --junitxml=/tmp/host-snap.xml -q \
+            || { echo "::error::host body snapshot failed"; exit 1; }
+          /tmp/accept/bin/python - <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("/tmp/host-snap.xml").getroot()
+          skipped = sum(int(s.get("skipped", 0)) for s in root.iter("testsuite"))
+          errors = sum(int(s.get("errors", 0)) for s in root.iter("testsuite"))
+          if skipped or errors:
+              print(f"::error::host snapshot: {skipped} skipped, {errors} errors — "
+                    "skip is failure under release acceptance")
+              sys.exit(1)
+          print("host snapshot: 0 skipped, 0 errors")
+          EOF
+
       - name: Classic + codex journey from the wheels (AC12, CLI layer)
         run: |
           PACTKIT="/tmp/accept/bin/pactkit"
