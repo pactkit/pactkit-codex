@@ -1,7 +1,7 @@
 {
   "body_digests": {
-    ".pactkit-deployed.json": "b44efe7445e2b37c5e9c76dd71da3b08920d986dae370ee08d13eefaa7d2cf21",
-    "AGENTS.md": "7609ad0b8b9c23dc5c1edce357db17d703c55b3f153bf33af297a8820d2e6167",
+    ".pactkit-deployed.json": "9e11ff9635f2c56044dc8286a13ccae3ff47c97e40548a81e87edd367e7a1285",
+    "AGENTS.md": "2b87741f788e14f502869f1b10932ca442b242fd7b8e597cf9845706c396c8d9",
     "rules/pactkit-runtime.md": "fd8a852e8b6d8dc71ee980fdce731bffbcd189bc2507b0813c26f4114d44f64b",
     "skills/.pactkit-command-manifest.json": "1b07525a6a8bde485c852409e9d5b197aafd97edf64e161ea339725d2c33bede",
     "skills/pactkit-analyze/SKILL.md": "61e170f41ac108606adc180e15007eaae84db5369a12e49b4ba0bed119b7e059",
@@ -69,6 +69,6 @@
     "skills/project-sprint/references/phases/done.md": "384856322c3977efcb89c1e533155090e3a8594e3ad89a621ca3e6b5063c4b92",
     "skills/project-sprint/references/phases/plan.md": "709466af5f83601c1128614999f95226d66792ad34be729fc8d2b8d0dec27324"
   },
-  "core_version": "2.26.0",
+  "core_version": "2.26.1",
   "host": "codex"
 }
