@@ -1,3 +1,4 @@
+<!-- pactkit:start -->
 # pactkit-codex — Project Context
 
 ## Dev Commands
@@ -10,5 +11,6 @@ pytest tests/ -v
 ruff check src/ tests/
 ```
 
-@./docs/product/context.md
+<!-- pactkit:end -->
+
 @./.claude/CLAUDE.local.md

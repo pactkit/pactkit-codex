@@ -2,8 +2,7 @@
 # Edit this file to customize which components are deployed.
 # Remove items from a list to disable them. Default: all enabled.
 
-version: "2.4.0"
-stack: auto
+stack: python
 root: .
 developer: ""
 
@@ -32,6 +31,7 @@ commands:
   - project-pr
   - project-release
   - project-sprint
+  - project-debug
 
 # Skills — tool scripts
 skills:
@@ -45,6 +45,21 @@ skills:
   - pactkit-status
   - pactkit-trace
   - pactkit-visualize
+  - project-act
+  - project-check
+  - project-clarify
+  - project-design
+  - project-done
+  - project-hotfix
+  - project-init
+  - project-plan
+  - project-pr
+  - project-release
+  - project-sprint
+  - pactkit-garden
+  - pactkit-audit
+  - pactkit-report
+  - project-debug
 
 # Rules — constitution modules
 rules:
@@ -57,6 +72,35 @@ rules:
   - 07-shared-protocols
   - 08-architecture-principles
   - 09-sectional-write
+  - 01-workflow-conventions
+  - 02-mcp-integration
+  - 03-shared-protocols
+  - 04-architecture-principles
+  - 05-sectional-write
+  - 06-solution-design
+  - 07-engineering-concerns
+  - pactkit
+  - capability-design
+  - engineering-index
+  - external-tools
+  - git-workflow
+  - phase-act
+  - phase-check
+  - phase-done
+  - phase-hotfix
+  - phase-plan
+  - phase-pr
+  - phase-release
+  - runtime
+  - sectional-heuristics
+  - shared-execution
+  - spec-preflight
+  - pdca-lifecycle
+  - sprint-orchestrator
+  - phase-clarify
+  - phase-debug
+  - phase-design
+  - phase-init
 
 # CI/CD — set provider to github or gitlab to generate pipeline config
 ci:
@@ -70,14 +114,9 @@ ci:
 issue_tracker:
   provider: none
 
-# Hooks — safe, report-only hook templates (command-type only)
-hooks:
-  post_test_coverage: false
-  pre_commit_lint: false
-  pre_push_check: false
-
 # Lint — configure lint behavior in /project-done
 lint_blocking: false
+
 auto_fix: false
 
 # Virtual Environment — configure venv detection and paths
@@ -97,6 +136,16 @@ regression:
 check:
   security_checklist: true
   security_scope_override: none
+  pactguard:
+    enabled: false
+    mode: all
+    ruleset: ""
+    blocking: false
+  observe:
+    enabled: false
+    sources: auto
+    max_console: 100
+    max_network: 200
 
 # Done — configure commit and lesson quality behavior
 done:
@@ -104,25 +153,24 @@ done:
 
 # E2E Testing — configure end-to-end test strategy (none|cli|frontend|backend|fullstack)
 e2e:
-  type: none
+  api_spec: ""
   blocking: false
+  compose_file: docker-compose.test.yml
+  env_file: ".env.test"
   test_dir: tests/e2e
-  env_file: .env.test
-  api_spec: ""  # OpenAPI spec path for frontend/backend
-  compose_file: docker-compose.test.yml  # for fullstack
+  type: none
 
-# Visualize — configure directory scan exclusions
+# Visualize — graph_provider: auto | codegraph | builtin_graph; auto detects codegraph
 visualize:
-  graph_provider: codegraph
   scan_excludes:
     - venv
     - _venv
-    - .venv
-    - .env
+    - ".venv"
+    - ".env"
     - env
     - __pycache__
-    - .git
-    - .claude
+    - ".git"
+    - ".codex"
     - tests
     - docs
     - node_modules
@@ -130,17 +178,11 @@ visualize:
     - dist
     - build
 
-# Command Models — override model per command for OpenCode deployment
-command_models:
-  project-act: sonnet
-  project-check: sonnet
-  project-done: sonnet
-  project-hotfix: sonnet
-  project-init: sonnet
-  project-pr: sonnet
-  project-release: sonnet
+# Custom — user-defined keys (preserved by PactKit)
+hooks:
+  post_test_coverage: false
+  pre_commit_lint: false
+  pre_push_check: false
 
-# Adapter release flow direct-pushes main (single-maintainer, release-managed
-# repo); mirrors pactkit-src's own exemption rationale (STORY-slim-202608289e83eeb30df4).
 enforcement:
   allow_direct_push: true
