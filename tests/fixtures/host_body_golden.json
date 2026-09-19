@@ -1,9 +1,9 @@
 {
   "body_digests": {
-    ".pactkit-deployed.json": "8ce6f13b19e7677a2b2fdbc23add6069e1c84995fc953a62e194103169477cdb",
-    "AGENTS.md": "edbe42235baf962e5dcfa0faebe4dee818bb281712f8972005e0139de427e091",
+    ".pactkit-deployed.json": "ef0ee2d4fb2d5897f78967de4e49659b5f3ba9b5ad68b31cf54e1aaee60d6872",
+    "AGENTS.md": "e53fd694e86d7cc1d4d46cd5931f9c645d4f750b87a9b6645266aa40940c3352",
     "rules/pactkit-runtime.md": "fd8a852e8b6d8dc71ee980fdce731bffbcd189bc2507b0813c26f4114d44f64b",
-    "skills/.pactkit-command-manifest.json": "ff575a87b2c9ae9c575195904efcbc9b995e112ebb3891eacbb24b3af8dd1ec3",
+    "skills/.pactkit-command-manifest.json": "b58283dcfcffdc1ccacf21eae75452f34721ca8a2b6032d310b8cab097af1a92",
     "skills/pactkit-analyze/SKILL.md": "61e170f41ac108606adc180e15007eaae84db5369a12e49b4ba0bed119b7e059",
     "skills/pactkit-audit/SKILL.md": "a658e65307a7ee8315c31b1cf7a315f1918765801d02e5d8b5cd681946e2e5ca",
     "skills/pactkit-board/SKILL.md": "3ca5ba7de57aa5a9131bc4432e6e1ed2d2daa1ade22326ad7e851a69cbd6f342",
@@ -44,10 +44,10 @@
     "skills/project-act/references/rules/capability-design.md": "e4f64c2054e17e1de0e0920e7f2f4e6dd9d74b8356b341f3922fe9afa4045f2a",
     "skills/project-act/references/rules/engineering-index.md": "8e778405ebdc71de4df8cdaed6b03fede1eed1e7ff06f50880506c0e4f4d8788",
     "skills/project-act/references/rules/external-tools.md": "429d89ca21c1293b543c40888a554e598bf5059f61a1e40c7d6f213bcbcfbc18",
-    "skills/project-check/SKILL.md": "73e7abc57bed6489ae1ceecd36728470021a6fef4d815f07b624b87fa43f6a2b",
+    "skills/project-check/SKILL.md": "42805672b9f423cfc367d1fcd511b8a73829fc1a1c62500915cd772cd763e61d",
     "skills/project-check/references/rules/external-tools.md": "429d89ca21c1293b543c40888a554e598bf5059f61a1e40c7d6f213bcbcfbc18",
     "skills/project-clarify/SKILL.md": "7c5c5abcdd1abebc133e770ce53f4070bf539a8297ecbee81c7581d5753f15b3",
-    "skills/project-debug/SKILL.md": "649ca7331d6d5b93d6094fed70bc326f21c3cddd0a52b3aba423ebf4491c3466",
+    "skills/project-debug/SKILL.md": "f4a7c13857cfd1212566942e19e7479867abc0aaa0e83cb3b3ec65127da55fe2",
     "skills/project-design/SKILL.md": "b97c5bcb2dd84f02f605f76f91d106db138beaf7a8b283ebc90c368e7aaff7a5",
     "skills/project-design/references/rules/capability-design.md": "e4f64c2054e17e1de0e0920e7f2f4e6dd9d74b8356b341f3922fe9afa4045f2a",
     "skills/project-design/references/rules/external-tools.md": "429d89ca21c1293b543c40888a554e598bf5059f61a1e40c7d6f213bcbcfbc18",
@@ -56,7 +56,7 @@
     "skills/project-hotfix/SKILL.md": "60f58b5a2da2e511cc732a275db8e66d2a4be6be346949d02664be0bcbf8be59",
     "skills/project-init/SKILL.md": "3b1a3f35b953fd58f6f8a1f0d590c4e90b0ddc6e451bc412ec7022d15315866b",
     "skills/project-init/references/rules/sectional-heuristics.md": "811f222cf18876ede9c04256a21847b4da5cf7fe888f7b3405afb5605b151c39",
-    "skills/project-plan/SKILL.md": "c036612e89f9a340d5209851484f95ea7fe9eea3f149b2a792c7154498a29055",
+    "skills/project-plan/SKILL.md": "7b3dbeae325e9a6fbc13d791c2ebe6a02e98cab0cb3b7deb5b113f0fab14f282",
     "skills/project-plan/references/rules/capability-design.md": "e4f64c2054e17e1de0e0920e7f2f4e6dd9d74b8356b341f3922fe9afa4045f2a",
     "skills/project-plan/references/rules/engineering-index.md": "8e778405ebdc71de4df8cdaed6b03fede1eed1e7ff06f50880506c0e4f4d8788",
     "skills/project-plan/references/rules/external-tools.md": "429d89ca21c1293b543c40888a554e598bf5059f61a1e40c7d6f213bcbcfbc18",
@@ -67,8 +67,8 @@
     "skills/project-sprint/references/phases/act.md": "64ae46a3a3140181901c812122dddf5a181dea632815145524fbc115165ecffc",
     "skills/project-sprint/references/phases/check.md": "89da45db99723e4991201b0bbd0d04424939714a7e25ebc01f92e242c1c21973",
     "skills/project-sprint/references/phases/done.md": "384856322c3977efcb89c1e533155090e3a8594e3ad89a621ca3e6b5063c4b92",
-    "skills/project-sprint/references/phases/plan.md": "709466af5f83601c1128614999f95226d66792ad34be729fc8d2b8d0dec27324"
+    "skills/project-sprint/references/phases/plan.md": "05a687531c3b217aec34e949c0d949d057c3b579eeffc83f6eb6874bd9ddf97e"
   },
-  "core_version": "3.0.0",
+  "core_version": "3.0.1",
   "host": "codex"
 }
