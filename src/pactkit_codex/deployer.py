@@ -71,7 +71,7 @@ raise SystemExit(main())
 _CODEX_PROJECT_AGENTS_MD = """\
 # {project_name}
 
-> Read `docs/product/context.md` at session start for project state.
+> Read `.pactkit/context.md` at session start for project state — optional history, never a gate.
 > Read `.codex/AGENTS.local.md` for project-specific instructions.
 
 ## Dev Commands
